@@ -1048,7 +1048,6 @@
   async function spinUp(it, body){
     if(S.busy) return; S.busy=true;
     Sound.init();                                         // unlock audio inside the tap
-    if(window.innerWidth>=900) enterFS();                 // full monitor needs to be asked for during the click
     S.lockUntil=performance.now()+8000;
     const intro=$("intro"), cover=$("stCover"), disc=$("stDisc");
     if(window.innerWidth<900) closePanel();
@@ -1230,7 +1229,6 @@
     app.classList.toggle("fullpage",on);
     if(on){
       closePanel(); keepAwake(); pokeHud();
-      enterFS();
     }else{
       app.classList.remove("hud"); letSleep(); $("nowCard").classList.add("hidden");
       if(wentFS) exitFS();
