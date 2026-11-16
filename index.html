@@ -741,20 +741,86 @@
   const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const img = (images) => { const i=images&&images.length?(images[images.length-1]||images[0]).url:null; return i?`<img src="${esc(i)}" alt="" loading="lazy">`:`<div class="sq"></div>`; };
 
-  async function loadDevices(){
+  // ---- devices: remember ones we've seen, so a sleeping iPhone doesn't just vanish ----
+  const DEV_ICON={Smartphone:"📱",Computer:"💻",Speaker:"🔊",TV:"📺",Tablet:"📱",AVR:"🔊",CastAudio:"🔊",Automobile:"🚗"};
+  const ON_PHONE=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  const knownDevices=()=>{ try{ return JSON.parse(store.get("devices")||"{}"); }catch(e){ return {}; } };
+  function rememberDevices(list){
+    const k=knownDevices(), now=Date.now();
+    list.forEach(x=>{ if(x.id && !x.is_restricted) k[x.id]={id:x.id,name:x.name,type:x.type,seen:now}; });
+    Object.keys(k).forEach(id=>{ if(now-k[id].seen>21*864e5) delete k[id]; });   // forget after 3 weeks
+    store.set("devices",JSON.stringify(k));
+  }
+  function wakePhone(name){
+    // the only way to wake Spotify on an iPhone is to open the app; we'll move the music when you come back
+    store.set("wake",JSON.stringify({name:name||null,t:Date.now()}));
+    toast("Opening Spotify… then come back here");
+    setTimeout(()=>{ location.href="spotify:"; },250);
+  }
+  async function finishWake(){
+    let w; try{ w=JSON.parse(store.get("wake")||"null"); }catch(e){}
+    if(!w || Date.now()-w.t>3*60*1000){ store.set("wake",null); return; }
+    store.set("wake",null);
+    toast("Looking for your phone…");
+    for(let k=0;k<8;k++){
+      try{
+        const d=await api("/me/player/devices"); const list=(d&&d.devices)||[]; rememberDevices(list);
+        const hit=list.find(x=>w.name ? x.name===w.name : (x.type==="Smartphone"||x.type==="Tablet"));
+        if(hit){ await api("/me/player",{method:"PUT",body:{device_ids:[hit.id],play:true}}); toast("Now playing on "+hit.name); soon(900); if(currentTab==="devices") setTimeout(loadDevices,900); return; }
+      }catch(e){ if(e.message==="NOAUTH"){ apiError(e); return; } }
+      await wait(1500);
+    }
+    toast("Couldn't find the phone yet — open Spotify, play something for a second, then try again");
+    if(currentTab==="devices") loadDevices();
+  }
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) finishWake(); });
+  window.addEventListener("pageshow",()=>finishWake());
+
+  let devTimer=0;
+  async function loadDevices(quiet){
     const pane=$("pane-devices");
+    clearTimeout(devTimer);
     try{
       const d=await api("/me/player/devices");
-      const list=(d&&d.devices)||[];
-      if(!list.length){ pane.innerHTML=`<div class="empty">No devices found.<br>Open Spotify on your phone, laptop, or say “Alexa, open Spotify” on the Echo Show — then tap refresh.</div><button class="btn ghost wide" id="devRefresh">Refresh</button>`; $("devRefresh").onclick=loadDevices; return; }
-      pane.innerHTML=`<div class="sec">Play on</div>`+list.map(x=>`
+      const live=((d&&d.devices)||[]).filter(Boolean);
+      rememberDevices(live);
+      const liveIds=new Set(live.map(x=>x.id)), liveNames=new Set(live.map(x=>x.name));
+      const asleep=Object.values(knownDevices()).filter(x=>!liveIds.has(x.id) && !liveNames.has(x.name)).sort((a,b)=>b.seen-a.seen);
+      const phoneLive=live.some(x=>x.type==="Smartphone"||x.type==="Tablet");
+      const phoneKnown=asleep.some(x=>x.type==="Smartphone"||x.type==="Tablet");
+      const ago=t=>{ const m=Math.round((Date.now()-t)/60000); return m<60?`${Math.max(1,m)} min ago`:m<1440?`${Math.round(m/60)} hr ago`:`${Math.round(m/1440)} days ago`; };
+      let html=`<div class="sec">Play on</div>`;
+      html+= live.length ? live.map(x=>`
         <button class="row ${x.is_active?"active":""}" data-dev="${esc(x.id)}">
-          <div class="sq" style="display:grid;place-items:center;font-size:20px">${{Smartphone:"📱",Computer:"💻",Speaker:"🔊",TV:"📺",Tablet:"📱"}[x.type]||"🎵"}</div>
-          <div class="txt"><div class="t1">${esc(x.name)}</div><div class="t2">${esc(x.type)}${x.is_active?" · playing here":""}</div></div>
-        </button>`).join("")+`<button class="btn ghost wide" id="devRefresh" style="margin-top:12px">Refresh</button>`;
-      pane.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>act(async()=>{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.dev],play:true}}); toast("Switched device"); setTimeout(loadDevices,800); }));
-      $("devRefresh").onclick=loadDevices;
-    }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; }
+          <div class="sq" style="display:grid;place-items:center;font-size:20px">${DEV_ICON[x.type]||"🎵"}</div>
+          <div class="txt"><div class="t1">${esc(x.name)}</div><div class="t2">${esc(x.type)}${x.is_active?" · playing here":" · ready"}</div></div>
+        </button>`).join("") : `<div class="loading">Nothing awake right now.</div>`;
+      if(ON_PHONE && !phoneLive && !phoneKnown){
+        html+=`<button class="row" data-wake="">
+          <div class="sq" style="display:grid;place-items:center;font-size:20px">📱</div>
+          <div class="txt"><div class="t1">This phone</div><div class="t2">Tap to wake Spotify on this phone</div></div></button>`;
+      }
+      if(asleep.length){
+        html+=`<div class="sec">Asleep</div>`+asleep.map(x=>{
+          const isPhone=x.type==="Smartphone"||x.type==="Tablet";
+          const hint= isPhone && ON_PHONE ? "Asleep · tap to wake (opens Spotify)" : `Asleep · seen ${ago(x.seen)}`;
+          return `<button class="row" style="opacity:.62" ${isPhone&&ON_PHONE?`data-wake="${esc(x.name)}"`:`data-sleep="${esc(x.id)}" data-name="${esc(x.name)}"`}>
+            <div class="sq" style="display:grid;place-items:center;font-size:20px;filter:grayscale(1)">${DEV_ICON[x.type]||"🎵"}</div>
+            <div class="txt"><div class="t1">${esc(x.name)}</div><div class="t2">${hint}</div></div></button>`; }).join("");
+      }
+      html+=`<div class="loading" style="text-align:left;padding:14px 8px 4px">Phones drop off Spotify's list when Spotify has been paused in the background for a while. Opening the Spotify app wakes them up.</div>`;
+      pane.innerHTML=html;
+      pane.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>act(async()=>{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.dev],play:true}}); toast("Switched device"); setTimeout(()=>loadDevices(true),800); }));
+      pane.querySelectorAll("[data-wake]").forEach(b=>b.onclick=()=>wakePhone(b.dataset.wake));
+      pane.querySelectorAll("[data-sleep]").forEach(b=>b.onclick=async()=>{
+        try{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.sleep],play:true}}); toast("Switched to "+b.dataset.name); setTimeout(()=>loadDevices(true),800); }
+        catch(e){ if(e.message==="NOAUTH") return apiError(e); toast(b.dataset.name+" is asleep — open Spotify on it, and it'll show up here"); }
+      });
+    }catch(e){ if(!quiet){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; } }
+    finally{
+      // keep the list fresh while you're looking at it
+      if(currentTab==="devices" && isPanelVisible() && !document.hidden) devTimer=setTimeout(()=>loadDevices(true),5000);
+    }
   }
 
   // ================= sound effects (synthesized, plays on THIS device) =================
