@@ -1,6 +1,6 @@
 {
-  "name": "Vinyl",
-  "short_name": "Vinyl",
+  "name": "Vinylify",
+  "short_name": "Vinylify",
   "description": "A record-player remote for Spotify",
   "start_url": "./",
   "scope": "./",
