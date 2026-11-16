@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Vinyl">
 <title>Vinyl — Spotify Remote</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Serif+Display&display=swap" rel="stylesheet">
@@ -320,6 +323,8 @@
     set(k,v){ try{ v==null ? localStorage.removeItem("vinyl."+k) : localStorage.setItem("vinyl."+k,v) }catch(e){} }
   };
   const $ = id => document.getElementById(id);
+  const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
+  if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
   // ================= auth (PKCE) =================
   const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
