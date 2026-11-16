@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Vinyl">
-<title>Vinyl — Spotify Remote</title>
+<meta name="apple-mobile-web-app-title" content="Vinylify">
+<title>Vinylify</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -365,7 +365,7 @@
 <!-- Setup / login screen -->
 <div class="gate hidden" id="gate">
   <div class="card">
-    <h1>Vinyl<span style="color:var(--accent)">.</span></h1>
+    <h1>Vinylify<span style="color:var(--accent)">.</span></h1>
     <p>A remote for Spotify. Music plays on your Spotify devices (phone, laptop, Echo Show…). This page just controls them.</p>
     <div id="setupSteps">
       <p><b style="color:var(--text)">One-time setup</b> (Spotify Premium required):</p>
@@ -388,7 +388,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinyl<span>.</span></div>
+      <div class="brand">Vinylify<span>.</span></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -404,7 +404,7 @@
         <div class="deck">
           <div class="platter"></div>
           <div class="record" id="record">
-            <div class="label" id="label"><div class="ph" id="labelPh">Vinyl</div></div>
+            <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div></div>
           </div>
           <div class="sheen"></div>
           <div class="spindle"></div>
@@ -967,15 +967,7 @@
       const sameRecord = S.contextUri && S.contextUri===it.uri && S.device;
       const disp = track ? {name:track.name, sub:track.artists, art:track.art||it.art, big:track.big||it.big} : {name:it.name, sub:it.sub, art:it.art, big:it.big};
       if(sameRecord && track){                      // same record already on the platter: just move the needle
-        if(S.busy) return; S.busy=true; Sound.init(); S.lockUntil=performance.now()+4000;
-        try{
-          if(S.playing){ Sound.lift(); api("/me/player/pause",{method:"PUT"}).catch(()=>{}); S.playing=false; S.progress=currentProgress(); }
-          S.cueing=true; await wait(700);
-          Sound.drop(true); await wait(Sound.lead(true));
-          await api("/me/player/play",{method:"PUT",body});
-          S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
-        }catch(e){ S.cueing=false; apiError(e); }
-        finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
+        needleMove(()=>api("/me/player/play",{method:"PUT",body}));
       } else spinUp(disp, body);
     }catch(e){ apiError(e); }
   }
@@ -1047,6 +1039,50 @@
   }
 
   // ================= Queue =================
+  // the needle lifts, (something changes), the needle drops, then the music
+  async function needleMove(action){
+    if(S.busy) return; S.busy=true; Sound.init(); S.lockUntil=performance.now()+6000;
+    try{
+      if(S.playing){ Sound.lift(); api("/me/player/pause",{method:"PUT"}).catch(()=>{}); S.playing=false; S.progress=currentProgress(); }
+      S.cueing=true; await wait(700);
+      Sound.drop(true); await wait(Sound.lead(true));
+      await action();
+      S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
+    }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
+    finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
+  }
+  // jump to song #i of "Up next": play the current album/playlist from that song,
+  // or — if it isn't part of it (e.g. something you queued) — skip forward to it
+  function jumpToQueued(i, t, after){
+    needleMove(async()=>{
+      const ctx=S.contextUri;
+      let done=false;
+      if(ctx){ try{ await api("/me/player/play",{method:"PUT",body:{context_uri:ctx, offset:{uri:t.uri}}}); done=true; }catch(e){ if(e.message==="NOAUTH") throw e; } }
+      if(!done){
+        await api("/me/player/play",{method:"PUT"}).catch(()=>{});
+        for(let k=0;k<=i;k++){ await api("/me/player/next",{method:"POST"}); await wait(120); }
+      }
+      toast("Playing "+t.name);
+      if(after) setTimeout(after,1600);
+    });
+  }
+  function queueRowsHTML(q){
+    return q.map((t,i)=>`
+      <div class="trk" data-i="${i}" data-uri="${esc(t.uri)}" role="button" tabindex="0" style="grid-template-columns:24px 38px minmax(0,1fr) auto">
+        <span class="n">${i+1}</span>
+        ${t.thumb?`<img src="${esc(t.thumb)}" alt="" style="width:38px;height:38px;border-radius:4px">`:`<span></span>`}
+        <div style="min-width:0"><div class="t1">${esc(t.name)}</div><div class="t2">${esc(t.artists)}</div></div>
+        <span class="d">${fmt(t.dur)}</span>
+      </div>`).join("");
+  }
+  function wireQueueRows(el, q, after){
+    el.querySelectorAll(".trk[data-i]").forEach(r=>{
+      const go=()=>jumpToQueued(+r.dataset.i, q[+r.dataset.i], after);
+      r.addEventListener("click",go); r.addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
+    });
+  }
+  const mapQueued = t => mapTrack(t.album?t:{...t,album:{images:t.images},artists:t.artists||(t.show?[{name:t.show.name}]:[])});
+
   async function loadQueue(){
     const pane=$("pane-queue");
     try{
@@ -1057,11 +1093,13 @@
         <div class="trk static" ${lbl?"":""}><span class="n">${lbl}</span>
           <div style="display:flex;gap:10px;align-items:center;min-width:0">${tt.thumb?`<img src="${esc(tt.thumb)}" alt="" style="width:38px;height:38px;border-radius:4px;flex:none">`:""}<div style="min-width:0"><div class="t1">${esc(tt.name)}</div><div class="t2">${esc(tt.artists||(t.show&&t.show.name)||"")}</div></div></div>
           <span class="d">${fmt(tt.dur)}</span><span></span></div>`; };
+      const qq=q.map(mapQueued);
       pane.innerHTML =
         (now?`<div class="sec">Now playing</div>`+row(now, S.playing?'<span class="eq"><i></i><i></i><i></i></span>':"▶"):"") +
-        (q.length?`<div class="sec">Up next</div>`+q.map((t,i)=>row(t,i+1)).join(""):`<div class="empty">Nothing up next.</div>`) +
+        (q.length?`<div class="sec">Up next — tap a song to play it</div>`+queueRowsHTML(qq):`<div class="empty">Nothing up next.</div>`) +
         `<button class="more" id="qRefresh">Refresh</button>
          <div class="loading">Spotify lets apps add to the queue, but not remove or reorder songs.</div>`;
+      wireQueueRows(pane, qq, loadQueue);
       $("qRefresh").onclick=loadQueue;
     }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load the queue.</div>`; }
   }
@@ -1306,17 +1344,16 @@
     $("ncS").textContent = it ? (it.kind==="album" ? it.sub : it.kind==="liked" ? it.sub : "") : "From the queue";
     const showQueue=async(note)=>{
       try{
-        const d=await api("/me/player/queue"); const q=((d&&d.queue)||[]).filter(Boolean).map(t=>mapTrack(t.album?t:{...t,album:{images:t.images}}));
-        list.innerHTML=(note?`<div class="loading">${note}</div>`:"")+(q.length?`<div class="sec">Up next</div>`+trackRowsHTML(q,true):`<div class="empty">Nothing up next.</div>`);
-        list.querySelectorAll(".trk").forEach(r=>{ r.classList.add("static"); });
-        list.querySelectorAll(".qa").forEach(b=>b.remove());
+        const d=await api("/me/player/queue"); const q=((d&&d.queue)||[]).filter(Boolean).map(mapQueued);
+        list.innerHTML=(note?`<div class="loading">${note}</div>`:"")+(q.length?`<div class="sec">Up next — tap a song to play it</div>`+queueRowsHTML(q):`<div class="empty">Nothing up next.</div>`);
+        wireQueueRows(list, q, ()=>{ if(!$("nowCard").classList.contains("hidden")) showQueue(note); });
       }catch(e){ apiError(e); }
     };
     if(!it){ list.innerHTML=`<div class="loading">Loading…</div>`; return showQueue(); }
     list.innerHTML=`<div class="loading">Loading songs…</div>`;
     try{
       const d=await fetchTracks(it);
-      if(d.unavailable) return showQueue("Spotify doesn't share the song list for playlists made by others — here's what's up next instead.");
+      if(d.unavailable) return showQueue("Spotify doesn't share the full song list for playlists made by others, so here's what's up next.");
       const tr=d.tracks||[];
       list.innerHTML=trackRowsHTML(tr, it.kind!=="album");
       wireTrackRows(list, tr, k=>playItem(it,k,tr[k]));
@@ -1366,7 +1403,7 @@
     requestAnimationFrame(frame);
     try{ await handleRedirect(); }catch(e){ showGate(true); $("gateMsg").textContent=e.message; return; }
     if(!store.get("refresh") && !store.get("access")){ showGate(true); return; }
-    if(!(store.get("scope")||"").includes("user-library-read")){ showGate(true); $("gateMsg").style.color="var(--accent2)"; $("gateMsg").textContent="New feature: Vinyl needs one more permission to show your Liked Songs. Tap Connect Spotify to approve it."; return; }
+    if(!(store.get("scope")||"").includes("user-library-read")){ showGate(true); $("gateMsg").style.color="var(--accent2)"; $("gateMsg").textContent="New feature: Vinylify needs one more permission to show your Liked Songs. Tap Connect Spotify to approve it."; return; }
     showGate(false);
     await refresh();
     startPolling();
