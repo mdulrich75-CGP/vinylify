@@ -355,6 +355,29 @@
   .hint{display:none}
   #app.fullpage .hint{display:block}
 
+  /* ---------- phone layout: the bottom bar is always on screen ---------- */
+  @media (max-width:899px){
+    .navbar{position:fixed;left:0;right:0;bottom:0;z-index:15;margin:0;padding:10px 0 calc(var(--safe-b) + 8px);
+      background:linear-gradient(180deg,rgba(16,12,9,0),rgba(16,12,9,.92) 38%)}
+    #app:not(.fullpage) .player{padding-bottom:78px}
+    #app.fullpage .navbar{display:none}
+  }
+  @media (max-width:899px) and (max-height:760px){
+    #app:not(.fullpage) .deck-wrap{width:min(64vw,38vh)}
+    #app:not(.fullpage) .player{gap:10px;padding-top:max(3vh,40px)}
+    #app:not(.fullpage) .transport{gap:10px}
+    #app:not(.fullpage) .play{width:60px;height:60px}
+    #app:not(.fullpage) .meta{min-height:0}
+    #app:not(.fullpage) .title{font-size:20px}
+  }
+  @media (max-width:899px) and (max-height:520px){   /* short windows and phones turned sideways: record beside the controls */
+    #app:not(.fullpage) .player{flex-direction:row;justify-content:center;align-items:center;gap:4vw;padding-top:0}
+    #app:not(.fullpage) .deck-wrap{width:min(40vw,58vh)}
+    #app:not(.fullpage) .transport{width:auto;max-width:48vw}
+    #app:not(.fullpage) .progress{width:min(44vw,360px)}
+    #app:not(.fullpage) .volume{width:min(36vw,260px)}
+  }
+
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
