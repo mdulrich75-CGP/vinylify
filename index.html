@@ -208,7 +208,7 @@
   .chips::-webkit-scrollbar{display:none}
   .fchip{flex:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--muted)}
   .fchip.on{background:var(--accent);border-color:var(--accent);color:#1b120a;font-weight:700}
-  .flow-cap{display:flex;align-items:center;gap:10px;text-align:left}
+  .flow-cap{display:flex;align-items:center;gap:10px;text-align:left;position:relative;z-index:3}
   .flow-cap .txt{flex:1;min-width:0;text-align:center}
   .flow-cap .playmini{flex:none;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#1b120a;display:grid;place-items:center}
   .flow-cap .playmini svg{width:18px;height:18px;fill:currentColor}
@@ -586,7 +586,9 @@
   }
   function apiError(e){
     if(e.message==="NOAUTH"){ showGate(true); return; }
-    if(e.status===404 || /NO_ACTIVE_DEVICE/i.test(e.reason||e.message)){ toast("No active device — pick one to play on"); openPanel("devices"); return; }
+    if(e.status===404 || /NO_ACTIVE_DEVICE/i.test(e.reason||e.message)){
+      toast(typeof ON_PHONE!=="undefined" && ON_PHONE ? "Spotify fell asleep — tap your phone under Asleep to wake it" : "No active device — pick one to play on");
+      openPanel("devices"); return; }
     if(e.status===403){ toast(/PREMIUM/i.test(e.reason||e.message) ? "Spotify Premium is required for playback control" : "Spotify refused that: "+e.message); return; }
     if(e.status===429){ toast("Spotify is rate-limiting — slow down a moment"); return; }
     toast(e.message||"Something went wrong");
@@ -696,8 +698,9 @@
       S.cueing=true; await wait(950);
       Sound.drop(true); await wait(Sound.lead(true));
       await api("/me/player/play",{method:"PUT"});
+      S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
+    }catch(e){ S.cueing=false; renderPlay(); if(noDevice(e)) S.pendingPlay=null; apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
   $("nextBtn").onclick = () => act(()=>api("/me/player/next",{method:"POST"}));
@@ -753,7 +756,7 @@
   }
   function wakePhone(name){
     // the only way to wake Spotify on an iPhone is to open the app; we'll move the music when you come back
-    store.set("wake",JSON.stringify({name:name||null,t:Date.now()}));
+    store.set("wake",JSON.stringify({name:name||null,t:Date.now(),body:S.pendingPlay||null}));
     toast("Opening Spotify… then come back here");
     setTimeout(()=>{ location.href="spotify:"; },250);
   }
@@ -766,7 +769,10 @@
       try{
         const d=await api("/me/player/devices"); const list=(d&&d.devices)||[]; rememberDevices(list);
         const hit=list.find(x=>w.name ? x.name===w.name : (x.type==="Smartphone"||x.type==="Tablet"));
-        if(hit){ await api("/me/player",{method:"PUT",body:{device_ids:[hit.id],play:true}}); toast("Now playing on "+hit.name); soon(900); if(currentTab==="devices") setTimeout(loadDevices,900); return; }
+        if(hit){
+          if(w.body){ await api("/me/player/play",{method:"PUT",query:{device_id:hit.id},body:w.body}); S.pendingPlay=null; }
+          else await api("/me/player",{method:"PUT",body:{device_ids:[hit.id],play:true}});
+          toast("Now playing on "+hit.name); soon(900); if(currentTab==="devices") setTimeout(loadDevices,900); return; }
       }catch(e){ if(e.message==="NOAUTH"){ apiError(e); return; } }
       await wait(1500);
     }
@@ -1056,7 +1062,7 @@
       const sameRecord = S.contextUri && S.contextUri===it.uri && S.device;
       const disp = track ? {name:track.name, sub:track.artists, art:track.art||it.art, big:track.big||it.big} : {name:it.name, sub:it.sub, art:it.art, big:it.big};
       if(sameRecord && track){                      // same record already on the platter: just move the needle
-        needleMove(()=>api("/me/player/play",{method:"PUT",body}));
+        needleMove(()=>api("/me/player/play",{method:"PUT",body}), body);
       } else spinUp(disp, body);
     }catch(e){ apiError(e); }
   }
@@ -1128,16 +1134,22 @@
   }
 
   // ================= Queue =================
+  const isPhoneDev = d => !!d && (d.type==="Smartphone" || d.type==="Tablet");
+  const noDevice = e => !!e && (/NO_ACTIVE_DEVICE/i.test(e.reason||"") || (e.status===404 && /device/i.test(e.message||"")));
+  // Lift the needle. On a phone we DON'T actually pause: iOS puts Spotify to sleep within seconds
+  // of the music stopping, so the old song keeps going until the new one starts at the needle drop.
+  function liftNeedle(){ Sound.lift(); if(!isPhoneDev(S.device)) api("/me/player/pause",{method:"PUT"}).catch(()=>{}); }
   // the needle lifts, (something changes), the needle drops, then the music
-  async function needleMove(action){
+  async function needleMove(action, body){
     if(S.busy) return; S.busy=true; Sound.init(); S.lockUntil=performance.now()+6000;
     try{
-      if(S.playing){ Sound.lift(); api("/me/player/pause",{method:"PUT"}).catch(()=>{}); S.playing=false; S.progress=currentProgress(); }
+      if(S.playing){ liftNeedle(); S.playing=false; S.progress=currentProgress(); }
       S.cueing=true; await wait(700);
       Sound.drop(true); await wait(Sound.lead(true));
       await action();
+      S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
+    }catch(e){ S.cueing=false; renderPlay(); if(noDevice(e)) S.pendingPlay=body||null; apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
   // jump to song #i of "Up next": play the current album/playlist from that song,
@@ -1146,14 +1158,14 @@
     needleMove(async()=>{
       const ctx=S.contextUri;
       let done=false;
-      if(ctx){ try{ await api("/me/player/play",{method:"PUT",body:{context_uri:ctx, offset:{uri:t.uri}}}); done=true; }catch(e){ if(e.message==="NOAUTH") throw e; } }
+      if(ctx){ try{ await api("/me/player/play",{method:"PUT",body:{context_uri:ctx, offset:{uri:t.uri}}}); done=true; }catch(e){ if(e.message==="NOAUTH" || noDevice(e)) throw e; } }
       if(!done){
         await api("/me/player/play",{method:"PUT"}).catch(()=>{});
         for(let k=0;k<=i;k++){ await api("/me/player/next",{method:"POST"}); await wait(120); }
       }
       toast("Playing "+t.name);
       if(after) setTimeout(after,1600);
-    });
+    }, S.contextUri ? {context_uri:S.contextUri, offset:{uri:t.uri}} : {uris:[t.uri]});
   }
   function queueRowsHTML(q){
     return q.map((t,i)=>`
@@ -1211,7 +1223,7 @@
     try{
       intro.classList.add("on");                          // sleeve rises into view
       // meanwhile lift the needle off whatever was playing
-      if(S.playing){ Sound.lift(); api("/me/player/pause",{method:"PUT"}).catch(()=>{}); }
+      if(S.playing) liftNeedle();
       S.playing=false; S.progress=0; renderPlay();
       await wait(520);
       cover.style.transform="rotateY(-168deg)";            // gatefold swings open
@@ -1237,8 +1249,9 @@
       Sound.drop(false);                                  // needle hits vinyl
       await wait(Sound.lead(false));                      // let the lead-in groove crackle, then the music
       await api("/me/player/play",{method:"PUT",body});
+      S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.playing=false; S.cueing=false; renderPlay(); if(!stageOn && wentFS) exitFS(); apiError(e); }
+    }catch(e){ S.playing=false; S.cueing=false; renderPlay(); if(!stageOn && wentFS) exitFS(); if(noDevice(e)) S.pendingPlay=body; apiError(e); }
     finally{
       intro.classList.remove("on","leave");
       S.busy=false; S.lockUntil=performance.now()+1200; setTimeout(refresh,1300);
