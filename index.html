@@ -148,7 +148,7 @@
   .field input{flex:1;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--text);outline:none}
   .btn{padding:13px 20px;border-radius:12px;background:var(--accent);color:#1b120a;font-weight:700}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500}
-  .mini{width:100%;margin-top:6px}
+  .wide{width:100%;margin-top:6px}
 
   /* ---------- header buttons ---------- */
   .hdr-right{display:flex;align-items:center;gap:8px;min-width:0}
@@ -243,7 +243,6 @@
   .deck-wrap{transition:width .55s cubic-bezier(.3,.7,.2,1)}
   #stageExit{position:fixed;top:calc(var(--safe-t) + 14px);right:16px;z-index:30;display:none}
   #app.fullpage header,#app.fullpage .scrim,#app.fullpage .navbar{display:none!important}
-  #app.fullpage #queueBtn{display:none}
   #app.fullpage .panel{opacity:0;pointer-events:none}
   #app.fullpage #stageExit{display:grid}
   #app.fullpage main{gap:0}
@@ -258,7 +257,7 @@
   #app.fullpage .title{font-size:clamp(24px,4.2vh,44px)}
   #app.fullpage .artist{font-size:clamp(14px,2.2vh,20px)}
   #app.fullpage .progress,#app.fullpage .controls,#app.fullpage .volume,#app.fullpage #stageExit{transition:opacity .5s}
-  #app.fullpage:not(.hud) .progress,#app.fullpage:not(.hud) .controls,#app.fullpage:not(.hud) .volume,#app.fullpage:not(.hud) #stageExit{opacity:0;pointer-events:none}
+  #app.fullpage:not(.hud) #stageExit{opacity:0;pointer-events:none}
   #app.fullpage:not(.hud){cursor:none}
   @media (max-height:520px){ #app.fullpage .deck-wrap{width:min(60vw,66vh)} #app.fullpage .player{gap:1vh} }
 
@@ -335,6 +334,27 @@
   }
   @keyframes spin{to{transform:rotate(360deg)}}
 
+  /* ---------- full page: just the turntable; controls float in on a tap ---------- */
+  .transport{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%}
+  #app.fullpage .player{justify-content:center!important;padding-top:0!important;gap:0}
+  #app.fullpage .deck-wrap{width:min(86vw,84vh,1100px)!important;margin-left:3vw}
+  @media (min-width:900px){ #app.fullpage .deck-wrap{width:min(90vw,90vh,1200px)!important} }
+  #app.fullpage .transport{position:fixed;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%) translateY(0);z-index:24;
+    width:min(560px,94vw);gap:12px;padding:16px 18px 14px;border-radius:24px;background:rgba(22,17,13,.82);border:1px solid var(--line);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(0,0,0,.6);transition:opacity .35s,transform .35s cubic-bezier(.3,.7,.2,1)}
+  #app.fullpage:not(.hud) .transport{opacity:0;transform:translateX(-50%) translateY(24px);pointer-events:none}
+  #app.fullpage .transport .meta,#app.fullpage .transport .progress,#app.fullpage .transport .controls,#app.fullpage .transport .volume{opacity:1!important;pointer-events:auto}
+  #app.fullpage .transport .meta{min-height:0}
+  #app.fullpage .transport .title{font-size:22px}
+  #app.fullpage .transport .artist{font-size:14px}
+  #app.fullpage .transport .progress{width:100%}
+  #app.fullpage .transport .play{width:62px;height:62px}
+  #app.fullpage #queueBtn{display:grid!important}
+  #app.fullpage .hint{position:fixed;left:50%;bottom:calc(var(--safe-b) + 14px);transform:translateX(-50%);font-size:12.5px;color:var(--muted);opacity:0;transition:opacity .6s;pointer-events:none;z-index:23;width:max-content;max-width:90vw;text-align:center;line-height:1.5}
+  #app.fullpage.showhint:not(.hud) .hint{opacity:.85}
+  .hint{display:none}
+  #app.fullpage .hint{display:block}
+
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
@@ -358,8 +378,8 @@
         <input id="cidInput" placeholder="Paste Client ID" autocomplete="off" spellcheck="false">
       </div>
     </div>
-    <button class="btn mini" id="loginBtn">Connect Spotify</button>
-    <button class="btn ghost mini hidden" id="changeCid">Use a different Client ID</button>
+    <button class="btn wide" id="loginBtn">Connect Spotify</button>
+    <button class="btn ghost wide hidden" id="changeCid">Use a different Client ID</button>
     <p id="gateMsg" style="color:#f08a6c"></p>
   </div>
 </div>
@@ -394,6 +414,8 @@
         </div>
       </div>
 
+      <div class="hint" id="hint">Tap the record for controls · double-tap to exit · swipe to put it away</div>
+      <div class="transport" id="transport">
       <div class="meta">
         <div class="title" id="title">Nothing playing</div>
         <div class="artist" id="artist">Pick a device and press play</div>
@@ -417,6 +439,7 @@
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
         <input type="range" id="vol" min="0" max="100" value="50" aria-label="Volume">
         <button class="ctl small" id="queueBtn" aria-label="Queue" title="Queue" style="width:38px;height:38px;color:var(--muted)"><svg viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm14-4v6.2A3 3 0 1 0 19 19v-7h3v-2h-5z"/></svg></button>
+      </div>
       </div>
 
       <nav class="navbar">
@@ -689,7 +712,7 @@
   document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openPanel(b.dataset.open));
   $("scrim").onclick=closePanel; $("sheetClose").onclick=closePanel;
   $("deviceChip").onclick=()=>openPanel("devices");
-  $("queueBtn").onclick=()=>openPanel("queue");
+  $("queueBtn").onclick=()=>{ if(stageOn){ toggleNowCard(); pokeHud(); } else openPanel("queue"); };
   const isPanelVisible=()=> window.innerWidth>=900 || $("panel").classList.contains("open");
 
   const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -700,12 +723,12 @@
     try{
       const d=await api("/me/player/devices");
       const list=(d&&d.devices)||[];
-      if(!list.length){ pane.innerHTML=`<div class="empty">No devices found.<br>Open Spotify on your phone, laptop, or say “Alexa, open Spotify” on the Echo Show — then tap refresh.</div><button class="btn ghost mini" id="devRefresh">Refresh</button>`; $("devRefresh").onclick=loadDevices; return; }
+      if(!list.length){ pane.innerHTML=`<div class="empty">No devices found.<br>Open Spotify on your phone, laptop, or say “Alexa, open Spotify” on the Echo Show — then tap refresh.</div><button class="btn ghost wide" id="devRefresh">Refresh</button>`; $("devRefresh").onclick=loadDevices; return; }
       pane.innerHTML=`<div class="sec">Play on</div>`+list.map(x=>`
         <button class="row ${x.is_active?"active":""}" data-dev="${esc(x.id)}">
           <div class="sq" style="display:grid;place-items:center;font-size:20px">${{Smartphone:"📱",Computer:"💻",Speaker:"🔊",TV:"📺",Tablet:"📱"}[x.type]||"🎵"}</div>
           <div class="txt"><div class="t1">${esc(x.name)}</div><div class="t2">${esc(x.type)}${x.is_active?" · playing here":""}</div></div>
-        </button>`).join("")+`<button class="btn ghost mini" id="devRefresh" style="margin-top:12px">Refresh</button>`;
+        </button>`).join("")+`<button class="btn ghost wide" id="devRefresh" style="margin-top:12px">Refresh</button>`;
       pane.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>act(async()=>{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.dev],play:true}}); toast("Switched device"); setTimeout(loadDevices,800); }));
       $("devRefresh").onclick=loadDevices;
     }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; }
@@ -1211,7 +1234,9 @@
   let stageOn=false, hudTimer=0, wakeLock=null, wentFS=false;
   async function keepAwake(){ try{ if("wakeLock" in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>wakeLock=null); } }catch(e){} }
   function letSleep(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
-  function pokeHud(){ if(!stageOn) return; $("app").classList.add("hud"); clearTimeout(hudTimer); hudTimer=setTimeout(()=>$("app").classList.remove("hud"),3000); }
+  function pokeHud(){ if(!stageOn) return; $("app").classList.add("hud"); clearTimeout(hudTimer); hudTimer=setTimeout(hideHud,4500); }
+  function hideHud(){ clearTimeout(hudTimer); $("app").classList.remove("hud"); }
+  function toggleHud(){ if($("app").classList.contains("hud")) hideHud(); else pokeHud(); }
   function enterFS(){
     const el=document.documentElement;
     if(document.fullscreenElement || document.webkitFullscreenElement) return;
@@ -1228,7 +1253,8 @@
     stageOn=on; const app=$("app");
     app.classList.toggle("fullpage",on);
     if(on){
-      closePanel(); keepAwake(); pokeHud();
+      closePanel(); keepAwake(); hideHud();
+      $("app").classList.add("showhint"); setTimeout(()=>$("app").classList.remove("showhint"),4000);
     }else{
       app.classList.remove("hud"); letSleep(); $("nowCard").classList.add("hidden");
       if(wentFS) exitFS();
@@ -1255,7 +1281,7 @@
     }else{
       lastTap=now; clearTimeout(tapTimer);
       tapTimer=setTimeout(()=>{                                     // single tap
-        if(stageOn) toggleNowCard();
+        if(stageOn) toggleHud();
         else if(isLaptop()) setStage(true);
       },330);
     }
@@ -1304,7 +1330,10 @@
   $("miniT").onclick=()=>setStage(true);
   document.addEventListener("keydown",e=>{ if(e.code==="Space" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); $("playBtn").click(); } });
   document.querySelector(".deck-wrap").addEventListener("dblclick",e=>e.preventDefault());
-  ["pointermove","pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,pokeHud,{passive:true}));
+  // keep the controls up while you're using them
+  ["pointerdown","pointermove","input"].forEach(ev=>$("transport").addEventListener(ev,()=>{ if(stageOn && $("app").classList.contains("hud")) pokeHud(); },{passive:true}));
+  ["pointerdown","pointermove"].forEach(ev=>$("stageExit").addEventListener(ev,()=>{ if(stageOn) pokeHud(); },{passive:true}));
+  document.addEventListener("keydown",e=>{ if(stageOn && e.key!=="Escape") pokeHud(); });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape" && stageOn) setStage(false); });
   const fsChange=()=>{ if(!(document.fullscreenElement||document.webkitFullscreenElement) && stageOn && wentFS){ wentFS=false; setStage(false); } };
   document.addEventListener("fullscreenchange",fsChange); document.addEventListener("webkitfullscreenchange",fsChange);
