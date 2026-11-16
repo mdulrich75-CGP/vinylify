@@ -171,11 +171,10 @@
   .crate-cap .btn{padding:10px 18px}
 
   /* ---------- cover flow (album results) ---------- */
-  .flow{position:relative;display:flex;align-items:center;overflow-x:auto;overflow-y:hidden;perspective:650px;scroll-snap-type:x mandatory;padding:14px 0 66px;scrollbar-width:none}
-  .flow::-webkit-scrollbar{display:none}
-  .flow-card{position:relative;flex:none;width:150px;aspect-ratio:1;padding:0;scroll-snap-align:center;border-radius:2px;background:#3a2c20 center/cover no-repeat;will-change:transform;
+  .flow{position:relative;height:236px;overflow:hidden;perspective:650px;perspective-origin:50% 40%;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;outline:none}
+  .flow.dragging{cursor:grabbing}
+  .flow-card{position:absolute;left:50%;top:16px;width:150px;aspect-ratio:1;padding:0;border-radius:2px;background:#3a2c20 center/cover no-repeat;will-change:transform;
     box-shadow:0 10px 24px rgba(0,0,0,.55);-webkit-box-reflect:below 3px linear-gradient(transparent 55%,rgba(255,255,255,.22))}
-  .flow-card + .flow-card{margin-left:-62px}
   .flow-cap{text-align:center;margin-top:-30px;min-height:40px;padding:0 10px}
   .flow-cap .t1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .flow-cap .t2{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -586,49 +585,64 @@
   $("sfxBtn").onclick=()=>{ Sound.on=!Sound.on; store.set("sfx",Sound.on?"1":"0"); renderSfx(); if(Sound.on){ Sound.init(); Sound.drop(true); } toast(Sound.on?"Record sounds on":"Record sounds off"); };
   renderSfx();
 
-  // ================= 3D flip-through (crate = vertical, cover flow = horizontal) =================
-  function flip3D(scroller, axis, onFocus, onActivate){
-    const cards=[...scroller.querySelectorAll(".card3d")], spacers=scroller.querySelectorAll(".spacer");
-    if(!cards.length) return;
-    let focused=-1, raf=0;
-    const Y=axis==="y";
-    function layout(){
-      const view=Y?scroller.clientHeight:scroller.clientWidth, size=Y?cards[0].offsetHeight:cards[0].offsetWidth;
-      spacers.forEach(sp=>{ sp.style[Y?"height":"width"]=Math.max(0,view/2-size/2)+"px"; if(!Y) sp.style.height="1px"; });
-    }
-    const stride=()=> cards.length>1 ? (Y?cards[1].offsetTop-cards[0].offsetTop:cards[1].offsetLeft-cards[0].offsetLeft) : (Y?cards[0].offsetHeight:cards[0].offsetWidth);
-    function centerOf(c){ return Y ? c.offsetTop+c.offsetHeight/2-scroller.scrollTop-scroller.clientHeight/2 : c.offsetLeft+c.offsetWidth/2-scroller.scrollLeft-scroller.clientWidth/2; }
-    function update(){
-      raf=0; const st=stride()||1; let best=0, bestD=1e9;
+  // ================= Cover Flow (horizontal, physics-driven — no native scrolling) =================
+  function coverFlow(el, n, onFocus, onActivate){
+    const cards=[...el.querySelectorAll(".card3d")];
+    let pos=0, target=0, focused=-1, last=performance.now(), running=false, wheelTimer=0;
+    const clamp=v=>Math.max(0,Math.min(n-1,v));
+    const SPREAD=46, CENTER_GAP=92;
+    function draw(){
       cards.forEach((c,i)=>{
-        const d=centerOf(c)/st, a=Math.abs(d);
-        if(a<bestD){ bestD=a; best=i; }
-        if(Y){
-          // records you've flipped past lean toward you; ones still in the crate lean back
-          const rot=Math.max(-68,Math.min(68,-d*62));
-          c.style.transform=`translateZ(${-Math.min(3,a)*40}px) translateY(${d>0?Math.min(a,2)*6:0}px) rotateX(${rot}deg)`;
-        }else{
-          const rot= a<0.02?0 : Math.max(-62,Math.min(62,-d*110));
-          c.style.transform=`translateX(${d>0?Math.min(a,1)*14:-Math.min(a,1)*14}px) translateZ(${-Math.min(1,a)*90}px) rotateY(${rot}deg)`;
-        }
-        c.style.zIndex=String(1000-Math.round(a*100));
-        c.style.filter=`brightness(${(1-Math.min(.55,a*.22)).toFixed(3)})`;
+        const r=i-pos, a=Math.abs(r), sg=Math.sign(r)||0;
+        const x = a<1 ? r*CENTER_GAP : sg*(CENTER_GAP+(a-1)*SPREAD);
+        const rot = -Math.max(-1,Math.min(1,r))*62;
+        const z = -Math.min(a,1)*110;
+        c.style.transform=`translateX(-50%) translateX(${x.toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${rot.toFixed(2)}deg)`;
+        c.style.zIndex=String(1000-Math.round(a*10));
+        c.style.filter=`brightness(${(1-Math.min(.5,a*.12)).toFixed(3)})`;
+        c.style.visibility = a>9 ? "hidden" : "visible";
       });
-      if(best!==focused){ if(focused!==-1) Sound.flick(); focused=best; onFocus(best); }
+      const f=Math.round(clamp(pos));
+      if(f!==focused){ if(focused!==-1) Sound.flick(); focused=f; onFocus(f); }
     }
-    const req=()=>{ if(!raf) raf=requestAnimationFrame(update); };
-    scroller.addEventListener("scroll",req,{passive:true});
-    window.addEventListener("resize",()=>{ layout(); req(); });
-    if(!Y) scroller.addEventListener("wheel",e=>{ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ scroller.scrollLeft+=e.deltaY; e.preventDefault(); } },{passive:false});
-    cards.forEach((c,i)=>c.addEventListener("click",()=>{
-      if(i===focused){ onActivate(i); return; }
-      const st=stride(); Sound.init();
-      if(Y) scroller.scrollTo({top:scroller.scrollTop+centerOf(c),behavior:"smooth"});
-      else scroller.scrollTo({left:scroller.scrollLeft+centerOf(c),behavior:"smooth"});
-    }));
-    layout(); update();
-    return { refresh(){ layout(); update(); } };
+    function tick(now){
+      const dt=Math.min(.05,(now-last)/1000); last=now;
+      pos += (target-pos)*Math.min(1,dt*11);
+      if(Math.abs(target-pos)<0.0008){ pos=target; running=false; draw(); return; }
+      draw(); requestAnimationFrame(tick);
+    }
+    function go(t){ target=clamp(t); if(!running){ running=true; last=performance.now(); requestAnimationFrame(tick); } }
+
+    // mouse wheel / trackpad: glide, then settle on the nearest album
+    el.addEventListener("wheel",e=>{
+      const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+      const unit = e.deltaMode===1 ? 3 : 100;             // line-mode wheels vs pixel-mode
+      e.preventDefault(); Sound.init();
+      go(target + d/unit);
+      clearTimeout(wheelTimer); wheelTimer=setTimeout(()=>go(Math.round(target)),130);
+    },{passive:false});
+
+    // drag / swipe with a little momentum
+    let down=null, moved=false;
+    el.addEventListener("pointerdown",e=>{ down={x:e.clientX,y:e.clientY,p:target,t:performance.now(),vx:0,lx:e.clientX,lt:performance.now()}; moved=false; });
+    window.addEventListener("pointermove",e=>{
+      if(!down) return;
+      const dx=e.clientX-down.x;
+      if(!moved && Math.abs(dx)>6 && Math.abs(dx)>Math.abs(e.clientY-down.y)){ moved=true; el.classList.add("dragging"); try{el.setPointerCapture(e.pointerId)}catch(_){} }
+      if(!moved) return;
+      const now=performance.now(); down.vx=(e.clientX-down.lx)/Math.max(1,now-down.lt); down.lx=e.clientX; down.lt=now;
+      go(down.p - dx/CENTER_GAP);
+    });
+    const up=()=>{ if(!down) return; if(moved){ go(Math.round(target - down.vx*4)); } down=null; el.classList.remove("dragging"); };
+    window.addEventListener("pointerup",up); window.addEventListener("pointercancel",up);
+
+    // taps: side album slides to the middle, middle album plays
+    cards.forEach((c,i)=>c.addEventListener("click",e=>{ if(moved){ e.preventDefault(); return; } Sound.init(); if(i===focused && Math.abs(pos-i)<0.3) onActivate(i); else go(i); }));
+    el.tabIndex=0;
+    el.addEventListener("keydown",e=>{ if(e.key==="ArrowRight"){ go(Math.round(target)+1); e.preventDefault(); } else if(e.key==="ArrowLeft"){ go(Math.round(target)-1); e.preventDefault(); } else if(e.key==="Enter"){ onActivate(focused); } });
+    draw();
   }
+
   // a record crate: focused sleeve upright, the ones behind peek over the top, flipped ones fall toward you
   function crate3D(scroller, n, onFocus, onActivate){
     const stage=scroller.querySelector(".crate-stage"), cards=[...stage.querySelectorAll(".card3d")], snaps=scroller.querySelectorAll(".crate-snap");
@@ -745,14 +759,14 @@
       const albums=((d.albums&&d.albums.items)||[]).filter(Boolean).map(a=>({uri:a.uri,name:a.name,sub:a.artists.map(x=>x.name).join(", ")+(a.release_date?" · "+a.release_date.slice(0,4):""),art:midArt(a.images),big:bigArt(a.images)}));
       if(!tracks.length && !albums.length){ out.innerHTML=`<div class="empty">No results for “${esc(q)}”.</div>`; return; }
       out.innerHTML =
-        (albums.length?`<div class="sec">Albums</div><div class="flow" id="flow"><div class="spacer"></div>${albums.map(a=>sleeveHTML("flow-card",a)).join("")}<div class="spacer"></div></div>
+        (albums.length?`<div class="sec">Albums</div><div class="flow" id="flow">${albums.map(a=>sleeveHTML("flow-card",a)).join("")}</div>
           <div class="flow-cap"><div class="t1" id="flT"></div><div class="t2" id="flS"></div></div>`:"") +
         (tracks.length?`<div class="sec">Songs</div>`+tracks.map((t,i)=>`
           <div class="row">${img(t.thumb)}
             <button class="txt" style="text-align:left" data-track="${i}"><div class="t1">${esc(t.name)}</div><div class="t2">${esc(t.sub)}</div></button>
             <button class="act" data-queue="${esc(t.uri)}">+ Queue</button>
           </div>`).join(""):"");
-      if(albums.length) flip3D($("flow"),"x",i=>{ $("flT").textContent=albums[i].name; $("flS").textContent=albums[i].sub; }, i=>playContext(albums[i]));
+      if(albums.length) coverFlow($("flow"),albums.length,i=>{ $("flT").textContent=albums[i].name; $("flS").textContent=albums[i].sub; }, i=>playContext(albums[i]));
       out.querySelectorAll("[data-track]").forEach(b=>b.onclick=()=>playTrack(tracks[+b.dataset.track]));
       out.querySelectorAll("[data-queue]").forEach(b=>b.onclick=()=>queueTrack(b.dataset.queue));
     }catch(e){ apiError(e); }
