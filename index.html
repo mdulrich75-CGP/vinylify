@@ -76,7 +76,8 @@
   #app.d3 .platter{box-shadow:inset 0 0 0 2px rgba(255,255,255,.05)}
   .bands{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   /* grab the tonearm */
-  .arm .grab{position:absolute;left:-30px;top:38%;width:60px;height:72%;pointer-events:auto;cursor:grab;touch-action:none}
+  .arm .grab{position:absolute;left:-30px;top:38%;width:60px;height:56%;pointer-events:auto;cursor:grab;touch-action:none}
+  .arm .grab.headgrab{left:-70px;top:84%;width:92px;height:26%}
   .arm .head .tipprobe{position:absolute;left:1px;bottom:1px;width:2px;height:2px;pointer-events:none}
   #armTip{position:fixed;z-index:60;pointer-events:none;padding:7px 12px;border-radius:12px;background:rgba(22,17,13,.92);border:1px solid var(--line);font-size:13px;color:var(--text);white-space:nowrap;transform:translate(-50%,-140%);display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
   #armTip.on{display:block}
@@ -445,7 +446,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v21</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v22</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -472,7 +473,8 @@
           <div class="armrest" id="armrest"></div>
           <div class="arm" id="arm">
             <div class="weight"></div><div class="rod"></div><div class="neck"></div><div class="head"><span class="tipprobe" id="tipProbe"></span></div><div class="base"></div>
-            <div class="grab" id="armGrab" title="Drag the tonearm to jump to any spot"></div>
+            <div class="grab" id="armGrab"></div>
+            <div class="grab headgrab" id="armGrab2"></div>
           </div>
         </div>
       </div>
@@ -565,7 +567,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "21";
+  const APP_VERSION = "22";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1651,7 +1653,7 @@
 
   // ================= grab the tonearm =================
   (function armDrag(){
-    const grab=$("armGrab"), tip=$("armTip");
+    const grab=$("armGrab"), grab2=$("armGrab2"), tip=$("armTip");
     let screenTable=[], wasPlaying=false, drag=null;
     function calibrate(){                            // where the stylus appears on screen for each angle (works in 3D too)
       const arm=$("arm"), keep=arm.style.transform; screenTable=[];
@@ -1678,27 +1680,45 @@
       if(!S.duration) return {f,sp,html:"Nothing loaded"};
       return {f,sp,html:`<b>${fmt(sp.offset)}</b> <span class="sub">/ ${fmt(S.duration)}</span>`};
     }
-    grab.addEventListener("pointerdown",e=>{
+    // The arm swings around its pivot by however much your finger swings around it, wherever you grabbed it.
+    function pivotXY(){
+      const b=document.querySelector(".arm .base").getBoundingClientRect(), d=$("deck").getBoundingClientRect();
+      return {x:b.left+b.width/2, y:b.top+b.height/2, sy:Math.max(0.4,d.height/d.width)};   // sy: how squashed the tilted deck looks
+    }
+    const polar=(x,y,pv)=>Math.atan2((y-pv.y)/pv.sy, x-pv.x)*180/Math.PI;
+    function down(e){
       e.stopPropagation(); e.preventDefault();
       if(S.busy) return;
-      try{ grab.setPointerCapture(e.pointerId); }catch(_){}
-      Sound.init(); calibrate();
+      try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+      Sound.init();
+      const pv=pivotXY(), t=$("tipProbe").getBoundingClientRect();
+      const dist=(x,y)=>Math.hypot(x-pv.x,(y-pv.y)/pv.sy);
+      // move as if you were holding the needle end, wherever you actually grabbed the arm
+      const gear=Math.max(0.15,Math.min(1.2, dist(e.clientX,e.clientY)/Math.max(1,dist(t.left+t.width/2,t.top+t.height/2))));
+      drag={moved:false, x0:e.clientX, y0:e.clientY, pv, a0:polar(e.clientX,e.clientY,pv), deg0:armDeg, gear};
       wasPlaying=S.playing;
-      if(S.playing){ liftNeedle(); S.progress=currentProgress(); S.fetchedAt=performance.now(); S.playing=false; S.cueing=true; }   // platter keeps turning while the arm is up
-      S.dragArm=true; S.dragDeg=armDeg; S.lockUntil=performance.now()+60000;
-      document.body.classList.add("grabbing");
-      drag={moved:false};
-      move(e);
-    });
+    }
+    grab.addEventListener("pointerdown",down); grab2.addEventListener("pointerdown",down);
     function move(e){
       if(!drag) return;
-      S.dragDeg=Math.max(-10,Math.min(60,angleAt(e.clientX,e.clientY))); drag.moved=true;
+      if(!drag.moved){
+        if(Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0)<6) return;     // just a touch: nothing happens
+        drag.moved=true;
+        // now the needle really lifts
+        if(S.playing){ liftNeedle(); S.progress=currentProgress(); S.fetchedAt=performance.now(); S.playing=false; S.cueing=true; }  // platter keeps turning
+        S.dragArm=true; S.lockUntil=performance.now()+60000;
+        document.body.classList.add("grabbing");
+      }
+      let da=polar(e.clientX,e.clientY,drag.pv)-drag.a0;
+      if(da>180) da-=360; if(da<-180) da+=360;
+      S.dragDeg=Math.max(-10,Math.min(60,drag.deg0+da*drag.gear));
       const d=describe(S.dragDeg); drag.d=d;
       tip.innerHTML=d.html; tip.style.left=e.clientX+"px"; tip.style.top=e.clientY+"px"; tip.classList.add("on");
     }
-    grab.addEventListener("pointermove",move);
+    grab.addEventListener("pointermove",move); grab2.addEventListener("pointermove",move);
     async function release(){
       if(!drag) return;
+      if(!drag.moved){ drag=null; return; }                               // a tap on the arm: leave everything as it was
       const d=drag.d||describe(S.dragDeg); drag=null;
       tip.classList.remove("on"); document.body.classList.remove("grabbing");
       S.dragArm=false;
@@ -1726,8 +1746,7 @@
       }
       S.lockUntil=performance.now()+1500; soon(1800);
     }
-    grab.addEventListener("pointerup",release);
-    grab.addEventListener("pointercancel",release);
+    [grab,grab2].forEach(g=>{ g.addEventListener("pointerup",release); g.addEventListener("pointercancel",release); });
   })();
 
   // ================= full-page record mode =================
