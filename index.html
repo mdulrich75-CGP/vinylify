@@ -445,7 +445,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v20</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v21</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -565,7 +565,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "20";
+  const APP_VERSION = "21";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -671,7 +671,21 @@
       applyState(st);
     }catch(e){ if(e.message==="NOAUTH") showGate(true); }
   }
+  // Right after a command, Spotify often still reports the old state for a second or two
+  // (old position, or "paused"). For a few seconds we only accept reports that match what you did.
+  S.expect=null;
+  function expectState(o){ S.expect={...o, at:performance.now(), until:performance.now()+(o.ms||6000), tries:0}; }
+  function matchesExpect(st){
+    const x=S.expect; if(!x) return true;
+    if(performance.now()>x.until){ S.expect=null; return true; }
+    if(!st) return false;
+    if(x.playing!=null && !!st.is_playing!==x.playing) return false;
+    if(x.trackUri && st.item && st.item.uri!==x.trackUri) return false;
+    if(x.pos!=null && st.item){ const want=x.pos+(x.playing?performance.now()-x.at:0); if(Math.abs((st.progress_ms||0)-want)>5000) return false; }
+    S.expect=null; return true;
+  }
   function applyState(st){
+    if(!matchesExpect(st)){ soon(1500); return; }                 // stale: ask again shortly
     if(!st){ S.playing=false; S.device=null; renderDevice(); renderPlay(); return; }
     const item=st.item;
     S.playing=!!st.is_playing; S.progress=st.progress_ms||0; S.duration=item?item.duration_ms:0; S.fetchedAt=performance.now();
@@ -835,7 +849,7 @@
   async function act(fn){ try{ await fn(); }catch(e){ apiError(e); } soon(); }
 
   $("playBtn").onclick = () => { if(S.busy) return; if(S.playing) act(async()=>{
-      Sound.lift(); S.playing=false; S.progress=currentProgress(); renderPlay(); await api("/me/player/pause",{method:"PUT"}); });
+      Sound.lift(); S.playing=false; S.progress=currentProgress(); renderPlay(); expectState({playing:false}); await api("/me/player/pause",{method:"PUT"}); });
     else needleDown(); };
   async function needleDown(){                    // resume: platter spins, arm swings over, needle drops, then the music
     S.busy=true; S.pendingPlay=null; Sound.init(); S.lockUntil=performance.now()+5000;
@@ -846,7 +860,7 @@
       Sound.drop(true); await wait(Sound.lead(true));
       await playCmd();
       S.pendingPlay=null;
-      S.cueing=false; S.playing=true; S.fetchedAt=performance.now(); renderPlay();
+      S.cueing=false; S.playing=true; S.fetchedAt=performance.now(); renderPlay(); expectState({playing:true});
     }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
@@ -857,7 +871,7 @@
 
   const seek=$("seek");
   seek.addEventListener("input",()=>{ S.seeking=true; setRange(seek,seek.value,1000); $("tCur").textContent=fmt(seek.value/1000*S.duration); });
-  seek.addEventListener("change",()=>act(async()=>{ const pos=Math.round(seek.value/1000*S.duration); S.progress=pos; S.fetchedAt=performance.now(); S.seeking=false; await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}}); }));
+  seek.addEventListener("change",()=>act(async()=>{ const pos=Math.round(seek.value/1000*S.duration); S.progress=pos; S.fetchedAt=performance.now(); S.seeking=false; expectState({pos, playing:S.playing}); await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}}); }));
 
   const vol=$("vol"); let volTimer, volWarned=0;
   function onVol(el){
@@ -1391,7 +1405,7 @@
       Sound.drop(true); await wait(Sound.lead(true));
       await action();
       S.pendingPlay=null;
-      S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
+      S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay(); expectState({playing:true});
     }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
@@ -1496,7 +1510,7 @@
       await wait(Sound.lead(false));                      // let the lead-in groove crackle, then the music
       await playCmd(body);
       S.pendingPlay=null;
-      S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
+      S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay(); expectState({playing:true});
     }catch(e){ S.playing=false; S.cueing=false; renderPlay(); if(!stageOn && wentFS) exitFS(); apiError(e); }
     finally{
       intro.classList.remove("on","leave");
@@ -1658,8 +1672,8 @@
     }
     function describe(th){
       const r=ratioForAngle(th);
-      if(r>R_OUT+0.025) return {off:true, html:"Let go here to <b>stop</b>"};
-      const f=Math.max(0,Math.min(1,(R_OUT-r)/(R_OUT-R_IN))), sp=spotForFraction(f);
+      if(r>1.12) return {off:true, html:"Let go here to <b>stop</b> ⏹"};                // well off the record, by the rest
+      const f=Math.max(0,Math.min(1,(R_OUT-r)/(R_OUT-R_IN))), sp=spotForFraction(f);  // edge of the record = the very start
       if(sp.album) return {f,sp,html:`<b>${sp.i+1}. ${esc(sp.track.name)}</b> <span class="sub">${fmt(sp.offset)}</span>`};
       if(!S.duration) return {f,sp,html:"Nothing loaded"};
       return {f,sp,html:`<b>${fmt(sp.offset)}</b> <span class="sub">/ ${fmt(S.duration)}</span>`};
@@ -1688,11 +1702,13 @@
       const d=drag.d||describe(S.dragDeg); drag=null;
       tip.classList.remove("on"); document.body.classList.remove("grabbing");
       S.dragArm=false;
-      if(d.off || !S.trackUri){                                   // parked: stop the music
+      if(d.off){                                                  // parked on the rest: stop the music
         S.cueing=false; S.playing=false; renderPlay();
-        if(wasPlaying) api("/me/player/pause",{method:"PUT"}).catch(()=>{});
+        expectState({playing:false});
+        api("/me/player/pause",{method:"PUT"}).catch(()=>{});
         S.lockUntil=performance.now()+1500; soon(1600); return;
       }
+      if(!S.trackUri && !S.duration){ S.cueing=false; S.playing=wasPlaying; renderPlay(); toast("Nothing on the turntable yet — pick something to play"); return; }
       // drop the needle there
       armDeg=S.dragDeg; S.cueing=true;
       Sound.drop(true);
@@ -1703,7 +1719,11 @@
         else{ await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}}); if(!wasPlaying) await playCmd(); }
         if(sp.album){ S.trackUri=sp.track.uri; S.duration=sp.track.dur||S.duration; }
         S.progress=pos; S.fetchedAt=performance.now(); S.playing=true; S.cueing=false; renderPlay();
-      }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
+        expectState({playing:true, pos, trackUri: sp.album ? sp.track.uri : S.trackUri});
+      }catch(e){
+        // the jump didn't go through: show what's really happening instead of parking the arm
+        S.cueing=false; S.playing=wasPlaying; S.fetchedAt=performance.now(); renderPlay(); apiError(e);
+      }
       S.lockUntil=performance.now()+1500; soon(1800);
     }
     grab.addEventListener("pointerup",release);
