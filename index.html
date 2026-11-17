@@ -570,12 +570,31 @@
   }
 
   // ================= API =================
-  async function api(path,{method="GET",body,query,retry=true}={}){
+  // Spotify's request budget is shared by every device and person using this app. When it says
+  // "slow down" (HTTP 429), everything here waits it out instead of asking again and again.
+  const RATE={until:0, strikes:0, told:0};
+  const rateLimited=()=>Date.now()<RATE.until;
+  async function api(path,{method="GET",body,query,retry=true,background=false}={}){
     let url="https://api.spotify.com/v1"+path;
     if(query) url+="?"+new URLSearchParams(query);
+    if(rateLimited()){
+      if(background){ const e=new Error("RATE"); e.status=429; e.quiet=true; throw e; }   // automatic checks just skip
+      const ms=RATE.until-Date.now();
+      if(ms>20000){ const e=new Error("RATE"); e.status=429; e.wait=Math.ceil(ms/1000); throw e; }
+      if(typeof toast==="function" && Date.now()-RATE.told>4000){ RATE.told=Date.now(); toast(`Spotify asked to slow down — sending in ${Math.ceil(ms/1000)} seconds…`); }
+      await new Promise(r=>setTimeout(r,ms+150));                                         // your taps wait, then go through
+    }
     const tok=await getToken();
     const r=await fetch(url,{method,headers:{Authorization:"Bearer "+tok,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined});
-    if(r.status===401 && retry){ await getToken(true); return api(path,{method,body,query,retry:false}); }
+    if(r.status===429){
+      const ra=parseInt(r.headers.get("Retry-After")||"",10);
+      RATE.strikes=Math.min(RATE.strikes+1,6);
+      const secs = ra>0 ? ra : Math.min(120, 5*2**(RATE.strikes-1));                    // 5, 10, 20, 40… seconds
+      RATE.until=Date.now()+secs*1000;
+      const e=new Error("RATE"); e.status=429; e.wait=secs; throw e;
+    }
+    if(r.ok) RATE.strikes=0;
+    if(r.status===401 && retry){ await getToken(true); return api(path,{method,body,query,retry:false,background}); }
     if(r.status===204 || r.status===202) return null;
     const txt=await r.text(); let j=null; try{ j=txt?JSON.parse(txt):null }catch(e){}
     if(!r.ok){
@@ -587,10 +606,13 @@
   function apiError(e){
     if(e.message==="NOAUTH"){ showGate(true); return; }
     if(e.status===404 || /NO_ACTIVE_DEVICE/i.test(e.reason||e.message)){
-      toast(typeof ON_PHONE!=="undefined" && ON_PHONE ? "Spotify fell asleep — tap your phone under Asleep to wake it" : "No active device — pick one to play on");
+      toast(typeof ON_PHONE!=="undefined" && ON_PHONE ? "Pick where to play — or tap your phone under Asleep to wake it" : "Pick a device to play on");
       openPanel("devices"); return; }
     if(e.status===403){ toast(/PREMIUM/i.test(e.reason||e.message) ? "Spotify Premium is required for playback control" : "Spotify refused that: "+e.message); return; }
-    if(e.status===429){ toast("Spotify is rate-limiting — slow down a moment"); return; }
+    if(e.status===429){
+      if(e.quiet) return;
+      if(Date.now()-RATE.told>8000){ RATE.told=Date.now(); toast(`Spotify asked Vinylify to slow down — try again in ${e.wait||10} seconds`); }
+      return; }
     toast(e.message||"Something went wrong");
   }
 
@@ -600,7 +622,7 @@
   async function refresh(){
     if(performance.now()<S.lockUntil) return;   // an intro animation owns the screen
     try{
-      const st = await api("/me/player",{query:{additional_types:"episode"}});
+      const st = await api("/me/player",{query:{additional_types:"episode"},background:true});
       applyState(st);
     }catch(e){ if(e.message==="NOAUTH") showGate(true); }
   }
@@ -608,8 +630,8 @@
     if(!st){ S.playing=false; S.device=null; renderDevice(); renderPlay(); return; }
     const item=st.item;
     S.playing=!!st.is_playing; S.progress=st.progress_ms||0; S.duration=item?item.duration_ms:0; S.fetchedAt=performance.now();
-    S.device=st.device; S.shuffle=!!st.shuffle_state; S.repeat=st.repeat_state||"off";
-    renderDevice(); renderPlay(); renderToggles();
+    S.device=st.device; if(st.device && st.device.id) store.set("lastDev",st.device.id); S.shuffle=!!st.shuffle_state; S.repeat=st.repeat_state||"off";
+    renderDevice(); renderPlay(); renderToggles(); renderSfx(); if(Sound.autoMuted()) Sound.sleep();
     if(st.device){
       const noVol = st.device.supports_volume===false;
       S.noVol=noVol;
@@ -684,23 +706,24 @@
   }
 
   // ================= actions =================
-  const soon = (ms=450) => setTimeout(refresh, ms);
+  let soonTimer=0;
+  const soon = (ms=450) => { clearTimeout(soonTimer); soonTimer=setTimeout(refresh, ms); };
   async function act(fn){ try{ await fn(); }catch(e){ apiError(e); } soon(); }
 
   $("playBtn").onclick = () => { if(S.busy) return; if(S.playing) act(async()=>{
       Sound.lift(); S.playing=false; S.progress=currentProgress(); renderPlay(); await api("/me/player/pause",{method:"PUT"}); });
     else needleDown(); };
   async function needleDown(){                    // resume: platter spins, arm swings over, needle drops, then the music
-    S.busy=true; Sound.init(); S.lockUntil=performance.now()+5000;
+    S.busy=true; S.pendingPlay=null; Sound.init(); S.lockUntil=performance.now()+5000;
     const dk=document.querySelector(".deck"); if(dk.classList.contains("empty")){ dk.classList.remove("empty"); S.trackId=null; }
     $("playIcon").innerHTML=ICON_PAUSE; $("miniIcon").innerHTML=ICON_PAUSE;
     try{
       S.cueing=true; await wait(950);
       Sound.drop(true); await wait(Sound.lead(true));
-      await api("/me/player/play",{method:"PUT"});
+      await playCmd();
       S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.cueing=false; renderPlay(); if(noDevice(e)) S.pendingPlay=null; apiError(e); }
+    }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
   $("nextBtn").onclick = () => act(()=>api("/me/player/next",{method:"POST"}));
@@ -757,6 +780,7 @@
   function wakePhone(name){
     // the only way to wake Spotify on an iPhone is to open the app; we'll move the music when you come back
     store.set("wake",JSON.stringify({name:name||null,t:Date.now(),body:S.pendingPlay||null}));
+    S.pendingPlay=null;
     toast("Opening Spotify… then come back here");
     setTimeout(()=>{ location.href="spotify:"; },250);
   }
@@ -787,7 +811,7 @@
     const pane=$("pane-devices");
     clearTimeout(devTimer);
     try{
-      const d=await api("/me/player/devices");
+      const d=await api("/me/player/devices",{background:!!quiet});
       const live=((d&&d.devices)||[]).filter(Boolean);
       rememberDevices(live);
       const liveIds=new Set(live.map(x=>x.id)), liveNames=new Set(live.map(x=>x.name));
@@ -822,18 +846,31 @@
         try{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.sleep],play:true}}); toast("Switched to "+b.dataset.name); setTimeout(()=>loadDevices(true),800); }
         catch(e){ if(e.message==="NOAUTH") return apiError(e); toast(b.dataset.name+" is asleep — open Spotify on it, and it'll show up here"); }
       });
-    }catch(e){ if(!quiet){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; } }
+    }catch(e){ if(!quiet){ apiError(e); if(e.status!==429) pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; } }
     finally{
       // keep the list fresh while you're looking at it
-      if(currentTab==="devices" && isPanelVisible() && !document.hidden) devTimer=setTimeout(()=>loadDevices(true),5000);
+      if(currentTab==="devices" && isPanelVisible() && !document.hidden) devTimer=setTimeout(()=>loadDevices(true),10000);
     }
   }
 
   // ================= sound effects (synthesized, plays on THIS device) =================
   const Sound = {
     ctx:null, on: store.get("sfx")!=="0", _noise:null, _crackle:null, lastFlick:0,
+    // If the music is playing on the same device that's showing this page, any sound from the page
+    // makes the device pause Spotify (iPhones then put it to sleep; the Echo Show just stops).
+    // So the record sounds stay silent whenever the music is playing on "this" device.
+    phone: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1),
+    autoMuted(){
+      if(!this.phone) return false;                                 // laptops/desktops never clash
+      const d=S.device;
+      const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+      if(!d) return ios;                                            // on an iPhone, "no device yet" usually means this phone
+      return d.type==="Smartphone" || d.type==="Tablet";            // music on a phone/tablet
+    },
+    active(){ return this.on && !this.autoMuted(); },
+    sleep(){ try{ if(this.ctx && this.ctx.state==="running") this.ctx.suspend(); }catch(e){} },
     init(){
-      if(!this.on) return null;
+      if(!this.active()){ this.sleep(); return null; }
       if(!this.ctx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; try{ this.ctx=new AC(); }catch(e){ return null; } }
       if(this.ctx.state==="suspended") this.ctx.resume();
       return this.ctx;
@@ -878,7 +915,7 @@
       cr.connect(hp).connect(lp).connect(cg).connect(out); cr.start(t, Math.random()*0.5); cr.stop(t+dur+.05);
     },
     // how long the needle-drop sound runs before the music should come in (ms)
-    lead(short){ return this.on && this.ctx ? (short?750:1650) : 0; },
+    lead(short){ return this.active() && this.ctx ? (short?750:1650) : 0; },
     lift(){                                                                    // stylus leaving the groove
       const c=this.init(); if(!c) return;
       const t=c.currentTime+0.01, out=c.destination;
@@ -898,7 +935,7 @@
       o.connect(og).connect(out); o.start(t+.04); o.stop(t+.3);
     },
     flick(){                                                                   // sleeve brushing past
-      if(!this.on || !this.ctx) return;
+      if(!this.active() || !this.ctx || this.ctx.state!=="running") return;
       const now=performance.now(); if(now-this.lastFlick<45) return; this.lastFlick=now;
       const c=this.ctx, t=c.currentTime, n=c.createBufferSource(); n.buffer=this.noise();
       const bp=c.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=1800+Math.random()*1400; bp.Q.value=1.2;
@@ -908,8 +945,16 @@
   };
   const SFX_ON='<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/>';
   const SFX_OFF='<path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.2l2.45 2.45c.03-.2.05-.42.05-.65zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1A7 7 0 0 1 19 12zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z"/>';
-  function renderSfx(){ $("sfxIcon").innerHTML=Sound.on?SFX_ON:SFX_OFF; $("sfxBtn").classList.toggle("on",Sound.on); }
-  $("sfxBtn").onclick=()=>{ Sound.on=!Sound.on; store.set("sfx",Sound.on?"1":"0"); renderSfx(); if(Sound.on){ Sound.init(); Sound.drop(true); } toast(Sound.on?"Record sounds on":"Record sounds off"); };
+  function renderSfx(){
+    const muted=Sound.on && Sound.autoMuted();
+    $("sfxIcon").innerHTML=Sound.on&&!muted?SFX_ON:SFX_OFF;
+    $("sfxBtn").classList.toggle("on",Sound.on&&!muted);
+    $("sfxBtn").style.opacity = muted ? ".45" : "";
+    $("sfxBtn").title = muted ? "Record sounds are muted while the music plays on this device (they'd pause Spotify)" : "Record sound effects";
+  }
+  $("sfxBtn").onclick=()=>{
+    if(Sound.on && Sound.autoMuted()){ toast("Record sounds are muted while the music plays on this device — they'd pause Spotify. Control it from your laptop or another phone to hear them."); return; }
+    Sound.on=!Sound.on; store.set("sfx",Sound.on?"1":"0"); renderSfx(); if(Sound.on){ Sound.init(); Sound.drop(true); } else Sound.sleep(); toast(Sound.on?"Record sounds on":"Record sounds off"); };
   renderSfx();
 
   // ================= Cover Flow (horizontal, physics-driven — no native scrolling) =================
@@ -1062,7 +1107,7 @@
       const sameRecord = S.contextUri && S.contextUri===it.uri && S.device;
       const disp = track ? {name:track.name, sub:track.artists, art:track.art||it.art, big:track.big||it.big} : {name:it.name, sub:it.sub, art:it.art, big:it.big};
       if(sameRecord && track){                      // same record already on the platter: just move the needle
-        needleMove(()=>api("/me/player/play",{method:"PUT",body}), body);
+        needleMove(()=>playCmd(body), body);
       } else spinUp(disp, body);
     }catch(e){ apiError(e); }
   }
@@ -1113,7 +1158,7 @@
     };
     coverFlow(host.querySelector(".flow"), items.length, i=>{
       cur=i; fT.textContent=items[i].name; fS.textContent=items[i].sub||"";
-      clearTimeout(timer); timer=setTimeout(()=>showDetail(i), detailCache.has(items[i].uri)?0:320);
+      clearTimeout(timer); timer=setTimeout(()=>showDetail(i), detailCache.has(items[i].uri)?0:650);
     }, i=>playItem(items[i]), start);
   }
 
@@ -1133,6 +1178,32 @@
     }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load your library.</div>`; }
   }
 
+  // ================= picking a device automatically =================
+  // When nothing is selected: use the last device you played on if it's awake,
+  // otherwise the only device that's awake. Only ask when there's no clear choice.
+  async function pickDevice(){
+    const d=await api("/me/player/devices");
+    const list=((d&&d.devices)||[]).filter(x=>x && x.id && !x.is_restricted);
+    if(typeof rememberDevices==="function") rememberDevices(list);
+    if(!list.length) return null;
+    const last=store.get("lastDev");
+    return list.find(x=>x.is_active) || list.find(x=>x.id===last) || (list.length===1 ? list[0] : null);
+  }
+  async function playCmd(body){
+    const opts=body?{method:"PUT",body}:{method:"PUT"};
+    if(!S.device){                                   // nothing selected: choose first, so the command doesn't just fail
+      const dev=await pickDevice().catch(()=>null);
+      if(dev){ await api("/me/player/play",{...opts,query:{device_id:dev.id}}); S.device=dev; renderDevice(); toast("Playing on "+dev.name); return; }
+    }
+    try{ await api("/me/player/play",opts); }
+    catch(e){
+      if(!noDevice(e)) throw e;
+      const dev=await pickDevice().catch(()=>null);
+      if(!dev) throw e;                              // several or none awake: the Devices list opens
+      await api("/me/player/play",{...opts,query:{device_id:dev.id}}); S.device=dev; renderDevice(); toast("Playing on "+dev.name);
+    }
+  }
+
   // ================= Queue =================
   const isPhoneDev = d => !!d && (d.type==="Smartphone" || d.type==="Tablet");
   const noDevice = e => !!e && (/NO_ACTIVE_DEVICE/i.test(e.reason||"") || (e.status===404 && /device/i.test(e.message||"")));
@@ -1142,6 +1213,7 @@
   // the needle lifts, (something changes), the needle drops, then the music
   async function needleMove(action, body){
     if(S.busy) return; S.busy=true; Sound.init(); S.lockUntil=performance.now()+6000;
+    S.pendingPlay=body||null;                     // kept until the new song is really playing
     try{
       if(S.playing){ liftNeedle(); S.playing=false; S.progress=currentProgress(); }
       S.cueing=true; await wait(700);
@@ -1149,7 +1221,7 @@
       await action();
       S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.cueing=false; renderPlay(); if(noDevice(e)) S.pendingPlay=body||null; apiError(e); }
+    }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
   // jump to song #i of "Up next": play the current album/playlist from that song,
@@ -1158,9 +1230,9 @@
     needleMove(async()=>{
       const ctx=S.contextUri;
       let done=false;
-      if(ctx){ try{ await api("/me/player/play",{method:"PUT",body:{context_uri:ctx, offset:{uri:t.uri}}}); done=true; }catch(e){ if(e.message==="NOAUTH" || noDevice(e)) throw e; } }
+      if(ctx){ try{ await playCmd({context_uri:ctx, offset:{uri:t.uri}}); done=true; }catch(e){ if(e.message==="NOAUTH" || noDevice(e)) throw e; } }
       if(!done){
-        await api("/me/player/play",{method:"PUT"}).catch(()=>{});
+        await playCmd().catch(()=>{});
         for(let k=0;k<=i;k++){ await api("/me/player/next",{method:"POST"}); await wait(120); }
       }
       toast("Playing "+t.name);
@@ -1209,6 +1281,7 @@
   const wait = ms => new Promise(r=>setTimeout(r,ms));
   async function spinUp(it, body){
     if(S.busy) return; S.busy=true;
+    S.pendingPlay=body;                                   // kept until the new song is really playing
     Sound.init();                                         // unlock audio inside the tap
     S.lockUntil=performance.now()+8000;
     const intro=$("intro"), cover=$("stCover"), disc=$("stDisc");
@@ -1248,10 +1321,10 @@
       await wait(1050);
       Sound.drop(false);                                  // needle hits vinyl
       await wait(Sound.lead(false));                      // let the lead-in groove crackle, then the music
-      await api("/me/player/play",{method:"PUT",body});
+      await playCmd(body);
       S.pendingPlay=null;
       S.cueing=false; S.playing=true; S.progress=0; S.fetchedAt=performance.now(); renderPlay();
-    }catch(e){ S.playing=false; S.cueing=false; renderPlay(); if(!stageOn && wentFS) exitFS(); if(noDevice(e)) S.pendingPlay=body; apiError(e); }
+    }catch(e){ S.playing=false; S.cueing=false; renderPlay(); if(!stageOn && wentFS) exitFS(); apiError(e); }
     finally{
       intro.classList.remove("on","leave");
       S.busy=false; S.lockUntil=performance.now()+1200; setTimeout(refresh,1300);
@@ -1494,11 +1567,26 @@
   $("cidInput").addEventListener("keydown",e=>{ if(e.key==="Enter") $("loginBtn").click(); });
   $("changeCid").onclick=()=>{ store.set("cid",null); store.set("access",null); store.set("refresh",null); showGate(true); };
 
-  let pollTimer;
+  let pollTimer, lastTouch=Date.now();
+  ["pointerdown","keydown","wheel"].forEach(ev=>document.addEventListener(ev,()=>{ lastTouch=Date.now(); },{passive:true,capture:true}));
+  function pollDelay(){
+    const idle=Date.now()-lastTouch > 5*60*1000;              // nobody has touched it for 5 minutes
+    let d = !S.device ? 20000 : S.playing ? 5000 : 12000;
+    if(idle) d = S.playing ? 20000 : 60000;
+    if(S.playing && S.duration){                                // check right when the song should end
+      const left=S.duration-currentProgress();
+      if(left>0 && left+900<d) d=left+900;
+    }
+    if(rateLimited()) d=Math.max(d, RATE.until-Date.now()+500);
+    return Math.max(1500,d);
+  }
+  function schedulePoll(){
+    clearTimeout(pollTimer);
+    pollTimer=setTimeout(async()=>{ if(!document.hidden) await refresh(); schedulePoll(); }, pollDelay());
+  }
   function startPolling(){
-    clearInterval(pollTimer);
-    pollTimer=setInterval(()=>{ if(!document.hidden) refresh(); }, 3000);
-    document.addEventListener("visibilitychange",()=>{ if(!document.hidden) refresh(); });
+    schedulePoll();
+    document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ lastTouch=Date.now(); refresh().finally(schedulePoll); } else clearTimeout(pollTimer); });
   }
 
   async function boot(){
