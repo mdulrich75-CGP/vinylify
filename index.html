@@ -57,7 +57,31 @@
   .label .ph{position:absolute;inset:0;display:grid;place-items:center;font-family:"DM Serif Display",serif;color:#f4e8d6;font-size:clamp(12px,3.2vw,20px);background:radial-gradient(circle,#c4572a,#7a3b1d)}
   .sheen{position:absolute;inset:0;border-radius:50%;pointer-events:none;
     background:conic-gradient(from 20deg, transparent 0 8%, rgba(255,255,255,.10) 12%, transparent 18% 50%, rgba(255,255,255,.08) 62%, transparent 68%);mix-blend-mode:screen}
-  .spindle{position:absolute;left:50%;top:50%;width:3.2%;height:3.2%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#9a9a9a 45%,#444);box-shadow:0 1px 3px rgba(0,0,0,.7)}
+  .spindle{position:absolute;left:50%;top:50%;width:3.2%;height:3.2%;transform:translate(-50%,-50%) translateZ(9px);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#9a9a9a 45%,#444);box-shadow:0 1px 3px rgba(0,0,0,.7)}
+  /* ---------- 3D ---------- */
+  .deck-wrap{perspective:1500px;perspective-origin:50% -25%}
+  .deck{transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,.7,.2,1)}
+  #app.d3 .deck{transform:rotateX(34deg)}
+  .sheen{transform:translateZ(3.6px)}
+  .plinth,.pl-edge{position:absolute;left:-11%;top:-11%;right:-27%;bottom:-11%;border-radius:22px;pointer-events:none}
+  .plinth{background:linear-gradient(135deg,#6a4529 0%,#4a2f1b 45%,#3a2414 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 2px 0 rgba(255,255,255,.08);transform:translateZ(-20px)}
+  .plinth::after{content:"";position:absolute;inset:0;border-radius:inherit;background:repeating-linear-gradient(100deg,rgba(0,0,0,.06) 0 3px,transparent 3px 9px)}
+  .pl-edge{background:#24160c}
+  .pl-edge.last{box-shadow:0 50px 90px rgba(0,0,0,.65)}
+  .p-edge{position:absolute;inset:-3.5%;border-radius:50%;background:#100d0b;pointer-events:none}
+  .r-edge{position:absolute;inset:0;border-radius:50%;background:#050505;pointer-events:none;transform:translateZ(2px)}
+  .post{position:absolute;left:102.5%;top:2.5%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:linear-gradient(90deg,#4a4a4a,#9a9a9a 45%,#4a4a4a);pointer-events:none}
+  .armrest{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#2b2b2b;box-shadow:inset 0 0 0 3px #444;pointer-events:none}
+  #app:not(.d3) .plinth,#app:not(.d3) .pl-edge,#app:not(.d3) .p-edge,#app:not(.d3) .post,#app:not(.d3) .armrest,#app:not(.d3) .r-edge{display:none}
+  #app.d3 .platter{box-shadow:inset 0 0 0 2px rgba(255,255,255,.05)}
+  .bands{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  /* grab the tonearm */
+  .arm .grab{position:absolute;left:-30px;top:38%;width:60px;height:72%;pointer-events:auto;cursor:grab;touch-action:none}
+  .arm .head .tipprobe{position:absolute;left:1px;bottom:1px;width:2px;height:2px;pointer-events:none}
+  #armTip{position:fixed;z-index:60;pointer-events:none;padding:7px 12px;border-radius:12px;background:rgba(22,17,13,.92);border:1px solid var(--line);font-size:13px;color:var(--text);white-space:nowrap;transform:translate(-50%,-140%);display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #armTip.on{display:block}
+  #armTip .sub{color:var(--muted);font-size:12px}
+  body.grabbing,body.grabbing *{cursor:grabbing!important}
 
   .arm{position:absolute;left:102.5%;top:2.5%;width:0;height:77.5%;transform-origin:0 0;transform:rotate(-6deg);z-index:3;pointer-events:none}
   .arm .rod{position:absolute;left:-3px;top:0;width:6px;height:88%;border-radius:3px;background:linear-gradient(90deg,#8d8d8d,#f2f2f2 45%,#9c9c9c);box-shadow:2px 3px 6px rgba(0,0,0,.5)}
@@ -338,12 +362,14 @@
   .transport{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%}
   #app.fullpage .player{justify-content:center!important;padding-top:0!important;gap:0}
   #app.fullpage .deck-wrap{width:min(86vw,84vh,1100px)!important;margin-left:3vw}
-  @media (min-width:900px){ #app.fullpage .deck-wrap{width:min(90vw,90vh,1200px)!important} }
+  @media (min-width:900px){ #app.fullpage .deck-wrap{width:min(90vw,90vh,1200px)!important} #app.fullpage.d3 .deck-wrap{width:min(62vw,86vh,1150px)!important} }
   #app.fullpage .transport{position:fixed;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%) translateY(0);z-index:24;
     width:min(560px,94vw);gap:12px;padding:16px 18px 14px;border-radius:24px;background:rgba(22,17,13,.82);border:1px solid var(--line);
     backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(0,0,0,.6);transition:opacity .35s,transform .35s cubic-bezier(.3,.7,.2,1)}
   #app.fullpage:not(.hud) .transport{opacity:0;transform:translateX(-50%) translateY(24px);pointer-events:none}
-  #app.fullpage .transport .meta,#app.fullpage .transport .progress,#app.fullpage .transport .controls,#app.fullpage .transport .volume{opacity:1!important;pointer-events:auto}
+  #app.fullpage .transport .meta,#app.fullpage .transport .progress,#app.fullpage .transport .controls,#app.fullpage .transport .volume{opacity:1!important}
+  #app.fullpage:not(.hud) .transport,#app.fullpage:not(.hud) .transport *{pointer-events:none!important;visibility:hidden;transition:opacity .35s,transform .35s,visibility 0s .35s}
+  #app.fullpage.hud .transport,#app.fullpage.hud .transport *{visibility:visible}
   #app.fullpage .transport .meta{min-height:0}
   #app.fullpage .transport .title{font-size:22px}
   #app.fullpage .transport .artist{font-size:14px}
@@ -419,10 +445,11 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v19</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v20</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
+      <button class="icon-btn" id="tiltBtn" title="3D / flat turntable" aria-label="3D or flat turntable" style="font-size:11.5px;font-weight:700;letter-spacing:.02em">3D</button>
       <button class="icon-btn" id="stageBtn" title="Full-page record (or double-tap the record)" aria-label="Full-page record"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z"/></svg></button>
       <button class="icon-btn" id="sfxBtn" title="Record sound effects" aria-label="Toggle sound effects"><svg viewBox="0 0 24 24" id="sfxIcon"></svg></button>
       <button class="chip" id="deviceChip" title="Choose device"><span class="dot"></span><span id="deviceName">No active device</span></button>
@@ -432,20 +459,25 @@
   <main>
     <section class="player">
       <div class="deck-wrap">
-        <div class="deck">
+        <div class="deck" id="deck">
+          <div class="plinth"></div>
           <div class="platter"></div>
+          <div class="r-edge"></div>
           <div class="record" id="record">
+            <svg class="bands" id="bands" viewBox="0 0 100 100" aria-hidden="true"></svg>
             <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div></div>
           </div>
           <div class="sheen"></div>
           <div class="spindle"></div>
+          <div class="armrest" id="armrest"></div>
           <div class="arm" id="arm">
-            <div class="weight"></div><div class="rod"></div><div class="neck"></div><div class="head"></div><div class="base"></div>
+            <div class="weight"></div><div class="rod"></div><div class="neck"></div><div class="head"><span class="tipprobe" id="tipProbe"></span></div><div class="base"></div>
+            <div class="grab" id="armGrab" title="Drag the tonearm to jump to any spot"></div>
           </div>
         </div>
       </div>
 
-      <div class="hint" id="hint">Tap the record for controls · double-tap to exit · swipe to put it away</div>
+      <div class="hint" id="hint">Tap the record for controls · drag the arm to jump · double-tap to exit · swipe to put it away</div>
       <div class="transport" id="transport">
       <div class="meta">
         <div class="title" id="title">Nothing playing</div>
@@ -518,6 +550,7 @@
   </div>
 </div>
 <button id="updateBtn">Update available</button>
+<div id="armTip"></div>
 <div id="toast"></div>
 
 <script>
@@ -532,7 +565,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "19";
+  const APP_VERSION = "20";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -653,6 +686,7 @@
       if(!S.volBusy){ const v=st.device.volume_percent??50; setRange($("vol"),v,100); setRange($("miniVol"),v,100); }
     }
     S.contextUri = st.context ? st.context.uri : null;
+    if((S.contextUri||"")!==(S.side?S.side.uri:"")) loadSide();
     const id=item?item.id||item.uri:null;
     if(id!==S.trackId){ S.trackId=id; S.trackUri=item?item.uri:null; renderTrack(item); markNowPlaying(); if(item && S.playing) $("app").querySelector(".deck").classList.remove("empty"); if(currentTab==="queue" && isPanelVisible()) loadQueue(); }
   }
@@ -690,8 +724,79 @@
   function setRange(el,v,max){ el.value=v; el.style.setProperty("--p",(max?v/max*100:0)+"%"); }
   function currentProgress(){ return S.playing ? Math.min(S.duration, S.progress + (performance.now()-S.fetchedAt)) : S.progress; }
 
+  // ================= tonearm geometry =================
+  // Where the stylus actually lands for a given arm angle, worked out from the arm's real shape,
+  // so the needle sits at the right spot on the record (the old version just guessed).
+  const R_OUT=0.95, R_IN=0.44;        // playable grooves: outer lead-in → inner run-out (fraction of the record's radius)
+  const ARM_REST=-6;
+  let geo={W:0,table:[]};
+  function tipRatio(th,W){
+    const H=0.775*W, c24=Math.cos(24*Math.PI/180), s24=Math.sin(24*Math.PI/180);
+    const hx=-22, hy=0.13*H;                                   // stylus = bottom-left corner of the headshell
+    const ax=-4 + (hx*c24 - hy*s24), ay=0.9*H + (hx*s24 + hy*c24);
+    const t=th*Math.PI/180, c=Math.cos(t), sn=Math.sin(t);
+    const x=1.025*W + (ax*c - ay*sn), y=0.025*W + (ax*sn + ay*c);
+    return Math.hypot(x-0.5*W, y-0.5*W)/(0.5*W);
+  }
+  function buildGeo(){
+    if(geo.W && geo.table.length) return;                      // measured once; re-measured when the size changes
+    const W=$("deck").offsetWidth||400;
+    const t=[]; let prev=Infinity;
+    for(let th=-10; th<=70; th+=0.25){ const r=tipRatio(th,W); if(r>prev) break; t.push([th,r]); prev=r; }
+    geo={W,table:t};
+  }
+  function angleForRatio(r){
+    buildGeo(); const t=geo.table;
+    for(let i=1;i<t.length;i++){ if(t[i][1]<=r){ const [a0,r0]=t[i-1],[a1,r1]=t[i]; return a0+(a1-a0)*(r0-r)/((r0-r1)||1); } }
+    return t[t.length-1][0];
+  }
+  function ratioForAngle(th){ buildGeo(); return tipRatio(th,geo.W); }
+  window.addEventListener("resize",()=>{ geo.W=0; });
+
+  // ================= album "side": the needle travels across the whole album =================
+  S.side=null;
+  async function loadSide(){
+    const ctx=S.contextUri||"";
+    if(!ctx.startsWith("spotify:album:")){ if(S.side){ S.side=null; drawBands(); } return; }
+    if(S.side && S.side.uri===ctx) return;
+    try{
+      const d=await fetchTracks({kind:"album",uri:ctx,name:S.albumName});
+      const tr=(d&&d.tracks)||[];
+      if(tr.length<2 || (d.total && d.total>tr.length)){ S.side=null; drawBands(); return; }   // singles / very long albums: per-song
+      const starts=[]; let acc=0; const index={};
+      tr.forEach((t,i)=>{ starts.push(acc); acc+=t.dur||0; index[t.uri]=i; });
+      S.side={uri:ctx, tracks:tr, starts, total:acc, index};
+      drawBands();
+    }catch(e){}
+  }
+  function drawBands(){
+    const svg=$("bands"); if(!svg) return;
+    if(!S.side){ svg.innerHTML=""; return; }
+    let h="";
+    S.side.starts.forEach((st,i)=>{ if(i===0) return;
+      const r=(R_OUT-(st/S.side.total)*(R_OUT-R_IN))*50;
+      h+=`<circle cx="50" cy="50" r="${r.toFixed(2)}" fill="none" stroke="#050505" stroke-width=".42" opacity=".85"/><circle cx="50" cy="50" r="${(r+.3).toFixed(2)}" fill="none" stroke="#fff" stroke-width=".12" opacity=".07"/>`;
+    });
+    svg.innerHTML=h;
+  }
+  // how far through the record the needle should be (0 = outer edge, 1 = label)
+  function needleFraction(){
+    const sd=S.side;
+    if(sd && sd.uri===S.contextUri && S.trackUri in sd.index){ const i=sd.index[S.trackUri]; return Math.min(1,(sd.starts[i]+currentProgress())/sd.total); }
+    return S.duration ? Math.min(1,currentProgress()/S.duration) : 0;
+  }
+  // which song and where in it, for a spot on the record
+  function spotForFraction(f){
+    const sd=S.side;
+    if(sd && sd.uri===S.contextUri){
+      const ms=f*sd.total; let i=0; while(i+1<sd.starts.length && sd.starts[i+1]<=ms) i++;
+      return {album:true, i, track:sd.tracks[i], offset:Math.max(0,ms-sd.starts[i])};
+    }
+    return {album:false, offset:f*(S.duration||0)};
+  }
+
   // ================= turntable animation =================
-  let angle=0, vel=0, armDeg=-6, last=performance.now();
+  let angle=0, vel=0, armDeg=ARM_REST, armZ=24, last=performance.now();
   const RPM_DEG = 200; // 33⅓ rpm
   function frame(now){
     const dt=Math.min(.1,(now-last)/1000); last=now;
@@ -701,13 +806,20 @@
     vel += (target-vel)*Math.min(1,rate*dt);
     if(!spinning && vel<0.5) vel=0;
     angle=(angle+vel*dt)%360;
-    $("record").style.transform=`rotate(${angle}deg)`;
+    $("record").style.transform=`translateZ(3px) rotate(${angle}deg)`;
 
-    // tonearm: off the record when paused, tracks inward with song progress when playing
-    const p = S.duration ? currentProgress()/S.duration : 0;
-    const armTarget = (S.playing||S.cueing) ? 14 + p*20 : -6;
-    armDeg += (armTarget-armDeg)*Math.min(1,2.2*dt);
-    $("arm").style.transform=`rotate(${armDeg}deg)`;
+    // tonearm: on its rest when stopped; on the record at the real spot when playing
+    let armTarget;
+    if(S.dragArm){ armDeg=S.dragDeg; armTarget=armDeg; }
+    else{
+      armTarget = (S.playing||S.cueing) ? angleForRatio(R_OUT - needleFraction()*(R_OUT-R_IN)) : ARM_REST;
+      armDeg += (armTarget-armDeg)*Math.min(1,2.2*dt);
+    }
+    // in 3D the arm lifts, swings over, then lowers onto the vinyl
+    const down = !S.dragArm && S.playing && Math.abs(armDeg-armTarget)<1.2;
+    const zTarget = S.dragArm ? 22 : down ? 9 : 24;
+    armZ += (zTarget-armZ)*Math.min(1,6*dt);
+    $("arm").style.transform=`translateZ(${armZ.toFixed(1)}px) rotate(${armDeg.toFixed(2)}deg)`;
 
     if(!S.seeking){
       const cur=currentProgress();
@@ -1504,6 +1616,100 @@
     renderBrowser(out, st.items, {start:startAt, pageSize:10, moreLabel:{album:"albums",artist:"artists",playlist:"playlists"}[type], more: st.more ? loadMore : null});
   }
 
+  // ================= 3D turntable =================
+  (function build3D(){
+    const deck=$("deck"), plinth=deck.querySelector(".plinth"), platter=deck.querySelector(".platter");
+    for(let i=1;i<=9;i++){ const e=document.createElement("div"); e.className="pl-edge"+(i===9?" last":""); e.style.transform=`translateZ(${-20-i*2}px)`; deck.insertBefore(e,plinth); }
+    for(let i=1;i<=6;i++){ const e=document.createElement("div"); e.className="p-edge"; e.style.transform=`translateZ(${-i*2}px)`; deck.insertBefore(e,platter); }
+    for(let i=0;i<=14;i++){ const e=document.createElement("div"); e.className="post"; e.style.transform=`translateZ(${-20+i*3}px)`; deck.insertBefore(e,$("arm")); }
+  })();
+  // arm rest: where the stylus sits when the arm is parked
+  function placeArmRest(){
+    buildGeo(); const W=geo.W, H=0.775*W, c24=Math.cos(24*Math.PI/180), s24=Math.sin(24*Math.PI/180);
+    const hx=-11, hy=0.065*H, ax=-4+(hx*c24-hy*s24), ay=0.9*H+(hx*s24+hy*c24), t=ARM_REST*Math.PI/180;
+    const x=1.025*W+(ax*Math.cos(t)-ay*Math.sin(t)), y=0.025*W+(ax*Math.sin(t)+ay*Math.cos(t));
+    const r=$("armrest"); r.style.left=x+"px"; r.style.top=y+"px"; r.style.transform="translateZ(14px)";
+  }
+  function setTilt(on){ $("app").classList.toggle("d3",on); $("tiltBtn").textContent=on?"3D":"2D"; $("tiltBtn").classList.toggle("on",on); store.set("flat",on?null:"1"); }
+  setTilt(store.get("flat")!=="1");
+  $("tiltBtn").onclick=()=>{ setTilt(!$("app").classList.contains("d3")); toast($("app").classList.contains("d3")?"3D turntable":"Flat turntable"); };
+  setTimeout(placeArmRest,50); window.addEventListener("resize",()=>setTimeout(placeArmRest,700));
+
+  // ================= grab the tonearm =================
+  (function armDrag(){
+    const grab=$("armGrab"), tip=$("armTip");
+    let screenTable=[], wasPlaying=false, drag=null;
+    function calibrate(){                            // where the stylus appears on screen for each angle (works in 3D too)
+      const arm=$("arm"), keep=arm.style.transform; screenTable=[];
+      for(let th=-10; th<=60; th+=1){
+        arm.style.transform=`translateZ(22px) rotate(${th}deg)`;
+        const r=$("tipProbe").getBoundingClientRect(); screenTable.push([th,r.left+r.width/2,r.top+r.height/2]);
+      }
+      arm.style.transform=keep;
+    }
+    function angleAt(x,y){
+      let best=0, bd=Infinity;
+      screenTable.forEach((p,i)=>{ const d=(p[1]-x)**2+(p[2]-y)**2; if(d<bd){ bd=d; best=i; } });
+      // refine between the two closest samples
+      const a=screenTable[Math.max(0,best-1)], b=screenTable[Math.min(screenTable.length-1,best+1)];
+      const vx=b[1]-a[1], vy=b[2]-a[2], L=vx*vx+vy*vy||1;
+      const u=Math.max(0,Math.min(1,((x-a[1])*vx+(y-a[2])*vy)/L));
+      return a[0]+(b[0]-a[0])*u;
+    }
+    function describe(th){
+      const r=ratioForAngle(th);
+      if(r>R_OUT+0.025) return {off:true, html:"Let go here to <b>stop</b>"};
+      const f=Math.max(0,Math.min(1,(R_OUT-r)/(R_OUT-R_IN))), sp=spotForFraction(f);
+      if(sp.album) return {f,sp,html:`<b>${sp.i+1}. ${esc(sp.track.name)}</b> <span class="sub">${fmt(sp.offset)}</span>`};
+      if(!S.duration) return {f,sp,html:"Nothing loaded"};
+      return {f,sp,html:`<b>${fmt(sp.offset)}</b> <span class="sub">/ ${fmt(S.duration)}</span>`};
+    }
+    grab.addEventListener("pointerdown",e=>{
+      e.stopPropagation(); e.preventDefault();
+      if(S.busy) return;
+      try{ grab.setPointerCapture(e.pointerId); }catch(_){}
+      Sound.init(); calibrate();
+      wasPlaying=S.playing;
+      if(S.playing){ liftNeedle(); S.progress=currentProgress(); S.fetchedAt=performance.now(); S.playing=false; S.cueing=true; }   // platter keeps turning while the arm is up
+      S.dragArm=true; S.dragDeg=armDeg; S.lockUntil=performance.now()+60000;
+      document.body.classList.add("grabbing");
+      drag={moved:false};
+      move(e);
+    });
+    function move(e){
+      if(!drag) return;
+      S.dragDeg=Math.max(-10,Math.min(60,angleAt(e.clientX,e.clientY))); drag.moved=true;
+      const d=describe(S.dragDeg); drag.d=d;
+      tip.innerHTML=d.html; tip.style.left=e.clientX+"px"; tip.style.top=e.clientY+"px"; tip.classList.add("on");
+    }
+    grab.addEventListener("pointermove",move);
+    async function release(){
+      if(!drag) return;
+      const d=drag.d||describe(S.dragDeg); drag=null;
+      tip.classList.remove("on"); document.body.classList.remove("grabbing");
+      S.dragArm=false;
+      if(d.off || !S.trackUri){                                   // parked: stop the music
+        S.cueing=false; S.playing=false; renderPlay();
+        if(wasPlaying) api("/me/player/pause",{method:"PUT"}).catch(()=>{});
+        S.lockUntil=performance.now()+1500; soon(1600); return;
+      }
+      // drop the needle there
+      armDeg=S.dragDeg; S.cueing=true;
+      Sound.drop(true);
+      try{
+        await wait(Sound.lead(true));
+        const sp=d.sp, pos=Math.round(sp.offset);
+        if(sp.album && sp.track.uri!==S.trackUri) await playCmd({context_uri:S.side.uri, offset:{uri:sp.track.uri}, position_ms:pos});
+        else{ await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}}); if(!wasPlaying) await playCmd(); }
+        if(sp.album){ S.trackUri=sp.track.uri; S.duration=sp.track.dur||S.duration; }
+        S.progress=pos; S.fetchedAt=performance.now(); S.playing=true; S.cueing=false; renderPlay();
+      }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
+      S.lockUntil=performance.now()+1500; soon(1800);
+    }
+    grab.addEventListener("pointerup",release);
+    grab.addEventListener("pointercancel",release);
+  })();
+
   // ================= full-page record mode =================
   let stageOn=false, hudTimer=0, wakeLock=null, wentFS=false;
   async function keepAwake(){ try{ if("wakeLock" in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>wakeLock=null); } }catch(e){} }
@@ -1525,6 +1731,7 @@
   }
   function setStage(on){
     stageOn=on; const app=$("app");
+    setTimeout(()=>{ geo.W=0; placeArmRest(); },750);          // the turntable changed size
     app.classList.toggle("fullpage",on);
     if(on){
       closePanel(); keepAwake(); hideHud();
