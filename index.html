@@ -34,7 +34,7 @@
 
   #app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;padding:calc(var(--safe-t) + 12px) 18px calc(var(--safe-b) + 12px)}
   header{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
-  .brand{font-family:"DM Serif Display",serif;font-size:22px;letter-spacing:.5px}
+  .brand{font-family:"DM Serif Display",serif;font-size:22px;letter-spacing:.5px;white-space:nowrap;display:flex;align-items:center}
   .brand span{color:var(--accent)}
   .chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--muted);max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chip .dot{width:8px;height:8px;border-radius:50%;background:#6b5f50;flex:none}
@@ -378,6 +378,13 @@
     #app:not(.fullpage) .volume{width:min(36vw,260px)}
   }
 
+  /* ---------- version label + update button ---------- */
+  .ver{font-family:"DM Sans",system-ui,sans-serif;font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--muted);opacity:.75;margin-left:6px;vertical-align:middle;padding:2px 6px;border:1px solid var(--line);border-radius:999px;cursor:pointer}
+  .ver:hover{opacity:1;color:var(--text)}
+  .gate-ver{margin-top:14px;text-align:center;font-size:12px;color:var(--muted);opacity:.7}
+  #updateBtn{position:fixed;left:50%;top:calc(var(--safe-t) + 12px);transform:translateX(-50%);z-index:55;padding:9px 16px;border-radius:999px;background:var(--accent);color:#1b120a;font-weight:700;font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.45);display:none;white-space:nowrap}
+  #updateBtn.on{display:block}
+
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
@@ -404,6 +411,7 @@
     <button class="btn wide" id="loginBtn">Connect Spotify</button>
     <button class="btn ghost wide hidden" id="changeCid">Use a different Client ID</button>
     <p id="gateMsg" style="color:#f08a6c"></p>
+    <div class="gate-ver" id="gateVer"></div>
   </div>
 </div>
 
@@ -411,7 +419,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v18</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -509,6 +517,7 @@
     <div class="st-cover" id="stCover"><div class="f" id="stFront"></div><div class="b"></div></div>
   </div>
 </div>
+<button id="updateBtn">Update available</button>
 <div id="toast"></div>
 
 <script>
@@ -522,6 +531,9 @@
   };
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
+  // ---- version (bump APP_VERSION with every update) ----
+  const APP_VERSION = "18";
+  const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
   // ================= auth (PKCE) =================
@@ -537,7 +549,7 @@
     const verifier = randomString(64);
     store.set("verifier", verifier);
     const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
-    const p = new URLSearchParams({response_type:"code",client_id:cid,scope:SCOPES,code_challenge_method:"S256",code_challenge:challenge,redirect_uri:REDIRECT});
+    const p = new URLSearchParams({response_type:"code",client_id:cid,scope:SCOPES,code_challenge_method:"S256",code_challenge:challenge,redirect_uri:REDIRECT,show_dialog:"true"});
     location.href = "https://accounts.spotify.com/authorize?" + p;
   }
   async function tokenRequest(body){
@@ -839,17 +851,38 @@
             <div class="txt"><div class="t1">${esc(x.name)}</div><div class="t2">${hint}</div></div></button>`; }).join("");
       }
       html+=`<div class="loading" style="text-align:left;padding:14px 8px 4px">Phones drop off Spotify's list when Spotify has been paused in the background for a while. Opening the Spotify app wakes them up.</div>`;
+      html+=`<div class="sec">This screen</div>
+        <div class="row" style="cursor:default">
+          <div class="sq" style="display:grid;place-items:center;font-size:20px">👤</div>
+          <div class="txt"><div class="t1" id="whoName">Signed in</div><div class="t2">Vinylify v${APP_VERSION} on this screen</div></div>
+          <button class="act" id="signOutBtn">Sign out</button>
+        </div>
+        <button class="row" id="signOutAllBtn">
+          <div class="sq" style="display:grid;place-items:center;font-size:20px">⏻</div>
+          <div class="txt"><div class="t1">Sign out every screen</div><div class="t2">Stops Vinylify on every phone, laptop &amp; Echo using your account</div></div>
+        </button>
+        <div class="loading hidden" id="signOutAllHelp" style="text-align:left;padding:8px 10px 4px;line-height:1.6">
+          On Spotify's <a href="https://www.spotify.com/account/apps/" target="_blank" rel="noopener" style="color:var(--accent2)">Manage apps</a> page, find <b style="color:var(--text)">Vinylify</b> and tap <b style="color:var(--text)">Remove access</b>.
+          Every Vinylify screen signed in to your account stops within an hour (most right away) and stops asking Spotify for anything.
+          Then tap <b style="color:var(--text)">Connect Spotify</b> again on the screens you want to keep using.<br>
+          <a href="https://www.spotify.com/account/apps/" target="_blank" rel="noopener" class="btn" style="display:inline-block;margin-top:10px;text-decoration:none">Open Manage apps</a>
+        </div>`;
       pane.innerHTML=html;
+      getMe().then(u=>{ const el=$("whoName"); if(el && u && (u.display_name||u.id)) el.textContent="Signed in as "+(u.display_name||u.id); }).catch(()=>{});
+      $("signOutBtn").onclick=()=>{ signOut(); };
+      $("signOutAllBtn").onclick=()=>$("signOutAllHelp").classList.toggle("hidden");
       pane.querySelectorAll("[data-dev]").forEach(b=>b.onclick=()=>act(async()=>{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.dev],play:true}}); toast("Switched device"); setTimeout(()=>loadDevices(true),800); }));
       pane.querySelectorAll("[data-wake]").forEach(b=>b.onclick=()=>wakePhone(b.dataset.wake));
       pane.querySelectorAll("[data-sleep]").forEach(b=>b.onclick=async()=>{
         try{ await api("/me/player",{method:"PUT",body:{device_ids:[b.dataset.sleep],play:true}}); toast("Switched to "+b.dataset.name); setTimeout(()=>loadDevices(true),800); }
         catch(e){ if(e.message==="NOAUTH") return apiError(e); toast(b.dataset.name+" is asleep — open Spotify on it, and it'll show up here"); }
       });
-    }catch(e){ if(!quiet){ apiError(e); if(e.status!==429) pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; } }
+    }catch(e){
+      if(e.status===429){ waitThenRetry(pane,"devices",()=>{ if(currentTab==="devices") loadDevices(); }); return; }
+      if(!quiet){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load devices.</div>`; } }
     finally{
       // keep the list fresh while you're looking at it
-      if(currentTab==="devices" && isPanelVisible() && !document.hidden) devTimer=setTimeout(()=>loadDevices(true),10000);
+      if(currentTab==="devices" && isPanelVisible() && !document.hidden && Date.now()-lastTouch<IDLE_AFTER) devTimer=setTimeout(()=>loadDevices(true),10000);
     }
   }
 
@@ -1175,7 +1208,21 @@
       let offset=50;
       renderBrowser(pane, items, {pageSize:50, moreLabel:"playlists", more: d&&d.next ? async()=>{ const m=await api("/me/playlists",{query:{limit:50,offset}}); offset+=50; return ((m&&m.items)||[]).filter(Boolean).map(mapPlaylist); } : null});
       libraryLoaded=true;
-    }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load your library.</div>`; }
+    }catch(e){
+      if(e.status===429){ waitThenRetry(pane,"library",()=>{ libraryPromise=null; if(currentTab==="playlists") loadLibrary(); }); return; }
+      apiError(e); pane.innerHTML=`<div class="empty">Couldn't load your library.</div>`; }
+  }
+
+  // when Spotify says "wait", show a countdown in the panel and try again by itself
+  const waitTimers={};
+  function waitThenRetry(pane, key, retry){
+    clearInterval(waitTimers[key]);
+    const tick=()=>{
+      const left=Math.ceil((RATE.until-Date.now())/1000);
+      if(left<=0){ clearInterval(waitTimers[key]); retry(); return; }
+      pane.innerHTML=`<div class="empty">Spotify asked Vinylify to wait a moment.<br>Trying again in <b style="color:var(--text)">${left}</b> seconds…</div>`;
+    };
+    tick(); waitTimers[key]=setInterval(tick,1000);
   }
 
   // ================= picking a device automatically =================
@@ -1274,7 +1321,9 @@
          <div class="loading">Spotify lets apps add to the queue, but not remove or reorder songs.</div>`;
       wireQueueRows(pane, qq, loadQueue);
       $("qRefresh").onclick=loadQueue;
-    }catch(e){ apiError(e); pane.innerHTML=`<div class="empty">Couldn't load the queue.</div>`; }
+    }catch(e){
+      if(e.status===429){ waitThenRetry(pane,"queue",()=>{ if(currentTab==="queue") loadQueue(); }); return; }
+      apiError(e); pane.innerHTML=`<div class="empty">Couldn't load the queue.</div>`; }
   }
 
   // ---- the sleeve opens, the record slides out onto the platter, the needle drops ----
@@ -1551,6 +1600,30 @@
   document.addEventListener("fullscreenchange",fsChange); document.addEventListener("webkitfullscreenchange",fsChange);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden && stageOn) keepAwake(); });
 
+  // ================= version label + automatic update check =================
+  $("verTag").textContent="v"+APP_VERSION;
+  $("gateVer").textContent="Vinylify v"+APP_VERSION+" · "+APP_DATE;
+  let newerVersion=null;
+  $("verTag").onclick=()=>toast(newerVersion ? `You have v${APP_VERSION} — v${newerVersion} is ready. Tap the orange button to update.` : `Vinylify v${APP_VERSION} · ${APP_DATE} · up to date`);
+  async function checkForUpdate(){
+    if(document.hidden) return;
+    try{
+      const r=await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"});
+      if(!r.ok) return;
+      const m=(await r.text()).match(/const APP_VERSION = "([^"]+)"/);
+      if(!m || m[1]===APP_VERSION) return;
+      newerVersion=m[1];
+      const idle=Date.now()-lastTouch > 3*60*1000;
+      if(idle && !S.busy){ location.reload(); return; }          // nobody's using it (e.g. the Echo): just update
+      $("updateBtn").textContent=`Update to v${newerVersion}`;
+      $("updateBtn").classList.add("on");
+    }catch(e){}
+  }
+  $("updateBtn").onclick=()=>location.reload();
+  setTimeout(checkForUpdate,20000);
+  setInterval(checkForUpdate,15*60*1000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) setTimeout(checkForUpdate,3000); });
+
   // ================= toast =================
   let toastTimer;
   function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2600); }
@@ -1565,17 +1638,32 @@
   }
   $("loginBtn").onclick=()=>{ const v=$("cidInput").value.trim(); if(v) store.set("cid",v); login(); };
   $("cidInput").addEventListener("keydown",e=>{ if(e.key==="Enter") $("loginBtn").click(); });
+  function signOut(){
+    ["access","refresh","expires","scope","devices","lastDev","wake"].forEach(k=>store.set(k,null));
+    me=null; clearTimeout(pollTimer);
+    $("gateMsg").style.color="var(--accent2)"; $("gateMsg").textContent="Signed out on this screen. Tap Connect Spotify to sign in — with any account.";
+    showGate(true);
+  }
   $("changeCid").onclick=()=>{ store.set("cid",null); store.set("access",null); store.set("refresh",null); showGate(true); };
 
+  // How often to ask Spotify "what's playing?". The request budget is shared by every screen
+  // and every person using this app, so a screen nobody is touching goes almost silent.
   let pollTimer, lastTouch=Date.now();
-  ["pointerdown","keydown","wheel"].forEach(ev=>document.addEventListener(ev,()=>{ lastTouch=Date.now(); },{passive:true,capture:true}));
+  const IDLE_AFTER=2*60*1000;
+  const isIdle=()=>Date.now()-lastTouch > IDLE_AFTER;
+  ["pointerdown","keydown","wheel"].forEach(ev=>document.addEventListener(ev,()=>{
+    const wasIdle=isIdle(); lastTouch=Date.now();
+    if(wasIdle && !document.hidden){ refresh().finally(schedulePoll); }   // first touch after a while: catch up right away
+  },{passive:true,capture:true}));
   function pollDelay(){
-    const idle=Date.now()-lastTouch > 5*60*1000;              // nobody has touched it for 5 minutes
-    let d = !S.device ? 20000 : S.playing ? 5000 : 12000;
-    if(idle) d = S.playing ? 20000 : 60000;
-    if(S.playing && S.duration){                                // check right when the song should end
-      const left=S.duration-currentProgress();
-      if(left>0 && left+900<d) d=left+900;
+    const left = S.playing && S.duration ? S.duration-currentProgress() : 0;   // time until this song ends
+    let d;
+    if(isIdle()){
+      d = S.playing ? (left>0 ? left+1500 : 30000) : 10*60*1000;   // idle: once per song, or every 10 minutes
+      d = Math.max(15000, Math.min(d, S.playing ? 6*60*1000 : 10*60*1000));
+    }else{
+      d = !S.device ? 30000 : S.playing ? 8000 : 15000;
+      if(left>0 && left+900<d) d=left+900;                          // catch the next song as it starts
     }
     if(rateLimited()) d=Math.max(d, RATE.until-Date.now()+500);
     return Math.max(1500,d);
