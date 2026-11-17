@@ -446,7 +446,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v22</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v23</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -567,7 +567,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "22";
+  const APP_VERSION = "23";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1654,7 +1654,7 @@
   // ================= grab the tonearm =================
   (function armDrag(){
     const grab=$("armGrab"), grab2=$("armGrab2"), tip=$("armTip");
-    let screenTable=[], wasPlaying=false, drag=null;
+    let screenTable=[], wasPlaying=false, drag=null, drag_keptPlaying=false;
     function calibrate(){                            // where the stylus appears on screen for each angle (works in 3D too)
       const arm=$("arm"), keep=arm.style.transform; screenTable=[];
       for(let th=-10; th<=60; th+=1){
@@ -1705,6 +1705,7 @@
         if(Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0)<6) return;     // just a touch: nothing happens
         drag.moved=true;
         // now the needle really lifts
+        drag_keptPlaying = S.playing && isPhoneDev(S.device);           // on phones the music keeps going while you drag
         if(S.playing){ liftNeedle(); S.progress=currentProgress(); S.fetchedAt=performance.now(); S.playing=false; S.cueing=true; }  // platter keeps turning
         S.dragArm=true; S.lockUntil=performance.now()+60000;
         document.body.classList.add("grabbing");
@@ -1736,7 +1737,11 @@
         await wait(Sound.lead(true));
         const sp=d.sp, pos=Math.round(sp.offset);
         if(sp.album && sp.track.uri!==S.trackUri) await playCmd({context_uri:S.side.uri, offset:{uri:sp.track.uri}, position_ms:pos});
-        else{ await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}}); if(!wasPlaying) await playCmd(); }
+        else{
+          await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}});
+          // the needle lift paused Spotify (except on phones, where we never pause) — so press play again
+          if(!wasPlaying || !drag_keptPlaying) await playCmd();
+        }
         if(sp.album){ S.trackUri=sp.track.uri; S.duration=sp.track.dur||S.duration; }
         S.progress=pos; S.fetchedAt=performance.now(); S.playing=true; S.cueing=false; renderPlay();
         expectState({playing:true, pos, trackUri: sp.album ? sp.track.uri : S.trackUri});
@@ -1917,8 +1922,10 @@
     const left = S.playing && S.duration ? S.duration-currentProgress() : 0;   // time until this song ends
     let d;
     if(isIdle()){
-      d = S.playing ? (left>0 ? left+1500 : 30000) : 10*60*1000;   // idle: once per song, or every 10 minutes
-      d = Math.max(15000, Math.min(d, S.playing ? 6*60*1000 : 10*60*1000));
+      // idle: every 30 s while music plays (and right as each song ends), every minute when stopped —
+      // still very light, but changes made elsewhere (Spotify app, Alexa) show up quickly
+      d = S.playing ? (left>0 ? Math.min(left+1500, 30000) : 30000) : 60000;
+      d = Math.max(5000, d);
     }else{
       d = !S.device ? 30000 : S.playing ? 8000 : 15000;
       if(left>0 && left+900<d) d=left+900;                          // catch the next song as it starts
