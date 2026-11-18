@@ -57,9 +57,9 @@
   .label .ph{position:absolute;inset:0;display:grid;place-items:center;font-family:"DM Serif Display",serif;color:#f4e8d6;font-size:clamp(12px,3.2vw,20px);background:radial-gradient(circle,#c4572a,#7a3b1d)}
   .sheen{position:absolute;inset:0;border-radius:50%;pointer-events:none;
     background:conic-gradient(from 20deg, transparent 0 8%, rgba(255,255,255,.10) 12%, transparent 18% 50%, rgba(255,255,255,.08) 62%, transparent 68%);mix-blend-mode:screen}
-  .spindle{position:absolute;left:50%;top:50%;width:3.2%;height:3.2%;transform:translate(-50%,-50%) translateZ(9px);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#9a9a9a 45%,#444);box-shadow:0 1px 3px rgba(0,0,0,.7)}
+  .spindle{position:absolute;left:50%;top:50%;width:3.2%;height:3.2%;transform:translate(-50%,-50%) translateZ(30px);border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#9a9a9a 45%,#444);box-shadow:0 1px 3px rgba(0,0,0,.7)}
   /* ---------- 3D ---------- */
-  .deck-wrap{perspective:1500px;perspective-origin:50% -25%}
+  .deck-wrap{perspective:1150px;perspective-origin:50% -30%}
   .deck{transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,.7,.2,1)}
   #app.d3 .deck{transform:rotateX(var(--tilt,34deg)) rotateZ(var(--spin,0deg))}
   .deck.orbiting{transition:none!important}
@@ -69,17 +69,29 @@
   .orbit.on{transform:scale(1.12);cursor:grabbing}
   #app.d3 .orbit{display:grid}
   #app.fullpage:not(.hud) .orbit{opacity:.35}
-  .sheen{transform:translateZ(3.6px)}
+  .sheen{transform:translateZ(20.6px);transition:opacity .3s}
+  .rstack{position:absolute;inset:0;transform-style:preserve-3d;transform:translateZ(18px);pointer-events:none}
+  .rstack .record{pointer-events:auto}
+  #app.d3 .arm{transform-style:preserve-3d}
+  #app:not(.d3) .deck,#app:not(.d3) .rstack,#app:not(.d3) .arm{transform-style:flat}
+  .x3{pointer-events:none}
+  #app:not(.d3) .x3{display:none}
+  .head.x3{background:linear-gradient(90deg,#141414,#2a2a2a)!important;box-shadow:none!important}
+  .rod.x3{background:#6d6d6d!important;box-shadow:none!important}
+  .weight.x3{background:#1f1f1f!important}
+  .base.x3{background:#3d3d3d!important;box-shadow:none!important}
+  .sp-edge{position:absolute;left:50%;top:50%;width:2.4%;height:2.4%;margin:-1.2% 0 0 -1.2%;border-radius:50%;background:#8d8d8d;pointer-events:none}
+  .ar-edge{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#3a3a3a;pointer-events:none}
   .plinth,.pl-edge{position:absolute;left:-11%;top:-11%;right:-27%;bottom:-11%;border-radius:22px;pointer-events:none}
-  .plinth{background:linear-gradient(135deg,#6a4529 0%,#4a2f1b 45%,#3a2414 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 2px 0 rgba(255,255,255,.08);transform:translateZ(-20px)}
+  .plinth{background:linear-gradient(135deg,#6a4529 0%,#4a2f1b 45%,#3a2414 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 2px 0 rgba(255,255,255,.08);transform:translateZ(0)}
   .plinth::after{content:"";position:absolute;inset:0;border-radius:inherit;background:repeating-linear-gradient(100deg,rgba(0,0,0,.06) 0 3px,transparent 3px 9px)}
-  .pl-edge{background:#24160c}
+  .pl-edge{background:linear-gradient(135deg,#3b2414,#24160c 60%,#1a0f08)}
   .pl-edge.last{box-shadow:0 50px 90px rgba(0,0,0,.65)}
-  .p-edge{position:absolute;inset:-3.5%;border-radius:50%;background:#100d0b;pointer-events:none}
-  .r-edge{position:absolute;inset:0;border-radius:50%;background:#050505;pointer-events:none;transform:translateZ(2px)}
+  .p-edge{position:absolute;inset:-3.5%;border-radius:50%;background:linear-gradient(115deg,#5a5a5a,#c9c9c9 30%,#6c6c6c 55%,#2c2c2c);pointer-events:none}
+  .r-edge{position:absolute;inset:0;border-radius:50%;background:#080808;pointer-events:none}
   .post{position:absolute;left:102.5%;top:2.5%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:linear-gradient(90deg,#4a4a4a,#9a9a9a 45%,#4a4a4a);pointer-events:none}
   .armrest{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#2b2b2b;box-shadow:inset 0 0 0 3px #444;pointer-events:none}
-  #app:not(.d3) .plinth,#app:not(.d3) .pl-edge,#app:not(.d3) .p-edge,#app:not(.d3) .post,#app:not(.d3) .armrest,#app:not(.d3) .r-edge{display:none}
+  #app:not(.d3) .plinth,#app:not(.d3) .pl-edge,#app:not(.d3) .p-edge,#app:not(.d3) .post,#app:not(.d3) .armrest,#app:not(.d3) .r-edge,#app:not(.d3) .sp-edge,#app:not(.d3) .ar-edge{display:none}
   #app.d3 .platter{box-shadow:inset 0 0 0 2px rgba(255,255,255,.05)}
   .bands{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   /* grab the tonearm */
@@ -370,7 +382,7 @@
   .transport{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%}
   #app.fullpage .player{justify-content:center!important;padding-top:0!important;gap:0}
   #app.fullpage .deck-wrap{width:min(86vw,84vh,1100px)!important;margin-left:3vw}
-  @media (min-width:900px){ #app.fullpage .deck-wrap{width:min(90vw,90vh,1200px)!important} #app.fullpage.d3 .deck-wrap{width:min(62vw,86vh,1150px)!important} }
+  @media (min-width:900px){ #app.fullpage .deck-wrap{width:min(90vw,90vh,1200px)!important} #app.fullpage.d3 .deck-wrap{width:min(54vw,74vh,1050px)!important} }
   #app.fullpage .transport{position:fixed;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%) translateY(0);z-index:24;
     width:min(560px,94vw);gap:12px;padding:16px 18px 14px;border-radius:24px;background:rgba(22,17,13,.82);border:1px solid var(--line);
     backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(0,0,0,.6);transition:opacity .35s,transform .35s cubic-bezier(.3,.7,.2,1)}
@@ -435,6 +447,8 @@
   /* ---------- real record mode ---------- */
   .sidetag{position:absolute;left:50%;top:70%;transform:translateX(-50%);font-family:"DM Sans",system-ui,sans-serif;font-weight:800;font-size:clamp(7px,1.3vw,13px);letter-spacing:.12em;color:#f4e8d6;background:rgba(0,0,0,.5);border-radius:4px;padding:1px 5px;display:none;pointer-events:none}
   .sidetag.on{display:block}
+  #flipNowBtn{display:none;width:auto!important;white-space:nowrap;padding:0 10px;border-radius:999px!important;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted)}
+  #flipNowBtn.on{display:inline-flex!important;align-items:center}
   #flipBtn{position:fixed;left:50%;bottom:calc(var(--safe-b) + 96px);transform:translateX(-50%);z-index:27;padding:13px 22px;border-radius:999px;background:var(--accent);color:#1b120a;font-weight:700;font-size:15px;box-shadow:0 14px 40px rgba(0,0,0,.55);display:none;white-space:nowrap}
   #flipBtn.on{display:block;animation:flipPulse 2.2s ease-in-out infinite}
   @keyframes flipPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.04)}}
@@ -474,7 +488,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v25</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v26</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -493,10 +507,13 @@
         <div class="deck" id="deck">
           <div class="plinth"></div>
           <div class="platter"></div>
-          <div class="r-edge"></div>
-          <div class="record" id="record">
-            <svg class="bands" id="bands" viewBox="0 0 100 100" aria-hidden="true"></svg>
-            <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div><div class="sidetag" id="sideTag">SIDE A</div></div>
+          <div class="rstack" id="rstack">
+            <div class="r-edge" style="transform:translateZ(.7px)"></div>
+            <div class="r-edge" style="transform:translateZ(1.4px)"></div>
+            <div class="record" id="record">
+              <svg class="bands" id="bands" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div><div class="sidetag" id="sideTag">SIDE A</div></div>
+            </div>
           </div>
           <div class="sheen"></div>
           <div class="spindle"></div>
@@ -533,6 +550,7 @@
       <div class="volume" id="volumeRow">
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
         <input type="range" id="vol" min="0" max="100" value="50" aria-label="Volume">
+        <button class="ctl small" id="flipNowBtn" aria-label="Flip the record" title="Flip the record to the other side">↻ Flip</button>
         <button class="ctl small" id="queueBtn" aria-label="Queue" title="Queue" style="width:38px;height:38px;color:var(--muted)"><svg viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm14-4v6.2A3 3 0 1 0 19 19v-7h3v-2h-5z"/></svg></button>
       </div>
       </div>
@@ -604,7 +622,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "25";
+  const APP_VERSION = "26";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -885,16 +903,21 @@
     vel += (target-vel)*Math.min(1,rate*dt);
     if(!spinning && vel<0.5) vel=0;
     angle=(angle+vel*dt)%360;
-    if(S.flipAnim){                                   // lift the record, turn it over, set it back down
-      const t=Math.min(1,(now-S.flipAnim.start)/1400), lift=Math.sin(Math.PI*t)*70;
-      const ry = t<.5 ? 180*t : -90+180*(t-.5);
-      if(t>=.5 && !S.flipAnim.swapped){ S.flipAnim.swapped=true; S.tagOverride=null; }
-      $("record").style.transform=`translateZ(${(3+lift).toFixed(1)}px) rotateY(${ry.toFixed(1)}deg) rotate(${angle}deg)`;
-      if(t>=1) S.flipAnim=null;
-    } else $("record").style.transform=`translateZ(3px) rotate(${angle}deg)`;
+    $("record").style.transform=`translateZ(2.2px) rotate(${angle}deg)`;
+    if(S.flipAnim){                                   // lift the record off the spindle, turn it over in the air, set it back down
+      const t=Math.min(1,(now-S.flipAnim.start)/1700);
+      const lift = t<.25 ? (t/.25)*130 : t>.75 ? ((1-t)/.25)*130 : 130;      // up… over… down
+      const tt = Math.max(0,Math.min(1,(t-.2)/.6));                            // turn while it's in the air
+      const ry = tt<.5 ? 180*tt : -90+180*(tt-.5);
+      if(tt>=.5 && !S.flipAnim.swapped){ S.flipAnim.swapped=true; S.tagOverride=null; }
+      $("rstack").style.transform=`translateZ(${(18+lift).toFixed(1)}px) rotateY(${ry.toFixed(1)}deg)`;
+      document.querySelector(".sheen").style.opacity="0";
+      if(t>=1){ S.flipAnim=null; $("rstack").style.transform="translateZ(18px)"; document.querySelector(".sheen").style.opacity=""; }
+    }
     // side label + groove gaps follow the side that's on the platter
     const lp=lpOn(), tag=$("sideTag");
     tag.classList.toggle("on",lp);
+    const fb=$("flipNowBtn"); if(fb.classList.contains("on")!==lp) fb.classList.toggle("on",lp);
     if(lp){ const txt="SIDE "+(S.tagOverride!=null?"AB"[S.tagOverride]:"AB"[platterSide()]); if(tag.textContent!==txt) tag.textContent=txt; }
     if(S.side && bandsKey!==S.side.uri+"|"+span().from) drawBands();
     // the last song on this side is ending: stop, and let the needle ride the run-out groove
@@ -913,7 +936,7 @@
     }
     // in 3D the arm lifts, swings over, then lowers onto the vinyl
     const down = !S.dragArm && (S.playing||S.runout) && Math.abs(armDeg-armTarget)<1.2;
-    const zTarget = S.dragArm ? 22 : down ? 9 : 24;
+    const zTarget = S.dragArm ? 38 : down ? 30 : 40;           // needle on the vinyl at 30, lifted at 40
     armZ += (zTarget-armZ)*Math.min(1,6*dt);
     $("arm").style.transform=`translateZ(${armZ.toFixed(1)}px) rotate(${armDeg.toFixed(2)}deg)`;
 
@@ -1763,7 +1786,7 @@
     S.runout=null; Sound.runoutStop(); $("flipBtn").classList.remove("on");
   }
   function checkSideCrossing(st){
-    if(!st || !lpOn() || S.busy || S.runout || S.flipAnim) return;
+    if(!st || !lpOn() || S.busy || S.runout || S.flipAnim || S.flipping) return;
     const i=S.side.index[S.trackUri]; if(i==null) return;
     const sIdx=sideOfIdx(i);
     if(S.lpSideNow==null){ S.lpSideNow=sIdx; return; }
@@ -1774,20 +1797,24 @@
     }
   }
   async function flipRecord(){
-    if(!S.runout || S.busy || !S.side) return;
-    const sd=S.side, from=S.runout.side, to=from===0?1:0;
+    if(S.busy || S.flipping || !lpOn()) return;
+    const sd=S.side, from=S.runout ? S.runout.side : platterSide(), to=from===0?1:0;
+    S.flipping=true;
     Sound.init();
+    if(!S.runout && (S.playing||S.cueing)){ liftNeedle(); S.progress=currentProgress(); S.playing=false; S.cueing=false; renderPlay(); }   // lift the needle first
     S.tagOverride=from; clearRunout();
     S.lpSideNow=to;                                               // the arm lifts to its rest while the record turns over
-    await wait(700);
+    await wait(900);                                              // arm back on its rest
     S.flipAnim={start:performance.now(), swapped:false};
-    await wait(1500);
+    await wait(1800);
+    S.flipping=false;
     const first=sd.tracks[sd.sides[to].from];
     const body={context_uri:sd.uri, offset:{uri:first.uri}, position_ms:0};
     S.trackUri=first.uri; S.duration=first.dur||S.duration; S.progress=0;
     needleMove(()=>playCmd(body), body);
   }
   $("flipBtn").onclick=()=>flipRecord();
+  $("flipNowBtn").onclick=()=>{ flipRecord(); pokeHud(); };
 
   // ================= settings menu =================
   function syncSettings(){
@@ -1810,16 +1837,33 @@
   // ================= 3D turntable =================
   (function build3D(){
     const deck=$("deck"), plinth=deck.querySelector(".plinth"), platter=deck.querySelector(".platter");
-    for(let i=1;i<=9;i++){ const e=document.createElement("div"); e.className="pl-edge"+(i===9?" last":""); e.style.transform=`translateZ(${-20-i*2}px)`; deck.insertBefore(e,plinth); }
-    for(let i=1;i<=6;i++){ const e=document.createElement("div"); e.className="p-edge"; e.style.transform=`translateZ(${-i*2}px)`; deck.insertBefore(e,platter); }
-    for(let i=0;i<=14;i++){ const e=document.createElement("div"); e.className="post"; e.style.transform=`translateZ(${-20+i*3}px)`; deck.insertBefore(e,$("arm")); }
+    const add=(cls,z,before,style)=>{ const e=document.createElement("div"); e.className=cls; e.style.transform=`translateZ(${z}px)`; if(style) Object.assign(e.style,style); deck.insertBefore(e,before); return e; };
+    // wooden base: 36px thick
+    for(let i=18;i>=1;i--) add("pl-edge"+(i===18?" last":""), -i*2, plinth);
+    // platter: a raised metal drum, 16px tall, with the rubber mat on top
+    for(let i=1;i<=11;i++) add("p-edge", i*1.5, platter);
+    platter.style.transform="translateZ(18px)";
+    // spindle sticking up through the record
+    for(let i=0;i<=8;i++) add("sp-edge", 18+i*1.4, $("arm"));
+    // tonearm pillar up to the arm's pivot
+    for(let i=0;i<=14;i++) add("post", i*2, $("arm"));
+    // arm rest post
+    window.__armRestPosts=[]; for(let i=0;i<=12;i++) window.__armRestPosts.push(add("ar-edge", i*2, $("armrest")));
+    // give the arm itself some thickness: cartridge hanging down to the needle, a round counterweight, a pivot housing
+    const arm=$("arm");
+    const clone=(sel,z)=>{ const src=arm.querySelector(sel), c=src.cloneNode(false); c.removeAttribute("id"); c.classList.add("x3"); c.style.transform=(getComputedStyle(src).transform!=="none"?getComputedStyle(src).transform+" ":"")+`translateZ(${z}px)`; arm.insertBefore(c,arm.firstChild); };
+    for(let k=1;k<=6;k++) clone(".head:not(.x3)",-k*1.5);
+    for(let k=1;k<=2;k++) clone(".rod:not(.x3)",-k*1.2);
+    for(let k=1;k<=5;k++) clone(".weight:not(.x3)",-k*2);
+    for(let k=1;k<=4;k++) clone(".base:not(.x3)",-k*2.2);
   })();
   // arm rest: where the stylus sits when the arm is parked
   function placeArmRest(){
     buildGeo(); const W=geo.W, H=0.775*W, c24=Math.cos(24*Math.PI/180), s24=Math.sin(24*Math.PI/180);
     const hx=-11, hy=0.065*H, ax=-4+(hx*c24-hy*s24), ay=0.9*H+(hx*s24+hy*c24), t=ARM_REST*Math.PI/180;
     const x=1.025*W+(ax*Math.cos(t)-ay*Math.sin(t)), y=0.025*W+(ax*Math.sin(t)+ay*Math.cos(t));
-    const r=$("armrest"); r.style.left=x+"px"; r.style.top=y+"px"; r.style.transform="translateZ(14px)";
+    const r=$("armrest"); r.style.left=x+"px"; r.style.top=y+"px"; r.style.transform="translateZ(27px)";
+    (window.__armRestPosts||[]).forEach(e=>{ e.style.left=x+"px"; e.style.top=y+"px"; });
   }
   function setTilt(on){ $("app").classList.toggle("d3",on); $("tiltBtn").textContent=on?"3D":"2D"; $("tiltBtn").classList.toggle("on",on); store.set("flat",on?null:"1"); }
   setTilt(store.get("flat")!=="1");
