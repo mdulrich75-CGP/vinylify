@@ -61,7 +61,14 @@
   /* ---------- 3D ---------- */
   .deck-wrap{perspective:1500px;perspective-origin:50% -25%}
   .deck{transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,.7,.2,1)}
-  #app.d3 .deck{transform:rotateX(34deg)}
+  #app.d3 .deck{transform:rotateX(var(--tilt,34deg)) rotateZ(var(--spin,0deg))}
+  .deck.orbiting{transition:none!important}
+  .orbit{position:absolute;left:-4%;bottom:-8%;z-index:6;width:42px;height:42px;border-radius:50%;display:none;place-items:center;font-size:21px;line-height:1;
+    background:rgba(25,19,14,.78);border:1px solid var(--line);box-shadow:0 8px 22px rgba(0,0,0,.45);cursor:grab;touch-action:none;pointer-events:auto;user-select:none;-webkit-user-select:none;transition:transform .15s,opacity .3s}
+  .orbit:hover{transform:scale(1.08)}
+  .orbit.on{transform:scale(1.12);cursor:grabbing}
+  #app.d3 .orbit{display:grid}
+  #app.fullpage:not(.hud) .orbit{opacity:.35}
   .sheen{transform:translateZ(3.6px)}
   .plinth,.pl-edge{position:absolute;left:-11%;top:-11%;right:-27%;bottom:-11%;border-radius:22px;pointer-events:none}
   .plinth{background:linear-gradient(135deg,#6a4529 0%,#4a2f1b 45%,#3a2414 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 2px 0 rgba(255,255,255,.08);transform:translateZ(-20px)}
@@ -412,6 +419,27 @@
   #updateBtn{position:fixed;left:50%;top:calc(var(--safe-t) + 12px);transform:translateX(-50%);z-index:55;padding:9px 16px;border-radius:999px;background:var(--accent);color:#1b120a;font-weight:700;font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.45);display:none;white-space:nowrap}
   #updateBtn.on{display:block}
 
+  /* ---------- settings menu ---------- */
+  @media (max-width:520px){ #tiltBtn{display:none} .hdr-right{gap:6px} }
+  #setPanel{position:fixed;right:18px;top:calc(var(--safe-t) + 64px);z-index:58;width:min(360px,92vw);padding:8px 8px 10px;border-radius:20px;background:rgba(25,19,14,.95);border:1px solid var(--line);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 30px 70px rgba(0,0,0,.6);display:none}
+  #setPanel.on{display:block}
+  #setPanel h3{margin:8px 12px 6px;font-family:"DM Serif Display",serif;font-weight:400;font-size:20px}
+  .opt{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;border-radius:14px;cursor:pointer}
+  .opt:hover{background:rgba(244,232,214,.05)}
+  .opt input{appearance:none;-webkit-appearance:none;flex:none;width:22px;height:22px;margin-top:1px;border-radius:7px;border:2px solid var(--muted);display:grid;place-items:center;cursor:pointer}
+  .opt input:checked{background:var(--accent);border-color:var(--accent)}
+  .opt input:checked::after{content:"✓";color:#1b120a;font-weight:800;font-size:14px}
+  .opt .t1{font-size:15px}
+  .opt .t2{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  /* ---------- real record mode ---------- */
+  .sidetag{position:absolute;left:50%;top:70%;transform:translateX(-50%);font-family:"DM Sans",system-ui,sans-serif;font-weight:800;font-size:clamp(7px,1.3vw,13px);letter-spacing:.12em;color:#f4e8d6;background:rgba(0,0,0,.5);border-radius:4px;padding:1px 5px;display:none;pointer-events:none}
+  .sidetag.on{display:block}
+  #flipBtn{position:fixed;left:50%;bottom:calc(var(--safe-b) + 96px);transform:translateX(-50%);z-index:27;padding:13px 22px;border-radius:999px;background:var(--accent);color:#1b120a;font-weight:700;font-size:15px;box-shadow:0 14px 40px rgba(0,0,0,.55);display:none;white-space:nowrap}
+  #flipBtn.on{display:block;animation:flipPulse 2.2s ease-in-out infinite}
+  @keyframes flipPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.04)}}
+  @media (min-width:900px){ #app:not(.fullpage) ~ #flipBtn{bottom:auto;top:calc(var(--safe-t) + 74px)} }
+
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
@@ -446,10 +474,11 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v23</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v25</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
+      <button class="icon-btn" id="setBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
       <button class="icon-btn" id="tiltBtn" title="3D / flat turntable" aria-label="3D or flat turntable" style="font-size:11.5px;font-weight:700;letter-spacing:.02em">3D</button>
       <button class="icon-btn" id="stageBtn" title="Full-page record (or double-tap the record)" aria-label="Full-page record"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z"/></svg></button>
       <button class="icon-btn" id="sfxBtn" title="Record sound effects" aria-label="Toggle sound effects"><svg viewBox="0 0 24 24" id="sfxIcon"></svg></button>
@@ -460,13 +489,14 @@
   <main>
     <section class="player">
       <div class="deck-wrap">
+        <button class="orbit" id="orbitHandle" aria-label="Turn the turntable" title="Drag to turn the turntable · double-tap to reset">✋</button>
         <div class="deck" id="deck">
           <div class="plinth"></div>
           <div class="platter"></div>
           <div class="r-edge"></div>
           <div class="record" id="record">
             <svg class="bands" id="bands" viewBox="0 0 100 100" aria-hidden="true"></svg>
-            <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div></div>
+            <div class="label" id="label"><div class="ph" id="labelPh">Vinylify</div><div class="sidetag" id="sideTag">SIDE A</div></div>
           </div>
           <div class="sheen"></div>
           <div class="spindle"></div>
@@ -553,6 +583,13 @@
 </div>
 <button id="updateBtn">Update available</button>
 <div id="armTip"></div>
+<button id="flipBtn">Tap the record to flip it ↻</button>
+<div id="setPanel" role="dialog" aria-label="Settings">
+  <h3>Settings</h3>
+  <label class="opt"><input type="checkbox" id="optLP"><div><div class="t1">Real record mode</div><div class="t2">Albums play in two sides, like an LP. When a side ends you'll hear the run-out groove until you flip the record.</div></div></label>
+  <label class="opt"><input type="checkbox" id="opt3D"><div><div class="t1">3D turntable</div><div class="t2">Tilted view with a wooden base. Off = flat, from above.</div></div></label>
+  <label class="opt"><input type="checkbox" id="optSfx"><div><div class="t1">Record sounds</div><div class="t2">Needle drop, crackle and run-out groove. Muted automatically while music plays on the phone you're holding.</div></div></label>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -567,7 +604,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "23";
+  const APP_VERSION = "25";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -688,6 +725,7 @@
   }
   function applyState(st){
     if(!matchesExpect(st)){ soon(1500); return; }                 // stale: ask again shortly
+    if(st && S.runout && st.is_playing){ clearRunout(); }           // music started from somewhere else
     if(!st){ S.playing=false; S.device=null; renderDevice(); renderPlay(); return; }
     const item=st.item;
     S.playing=!!st.is_playing; S.progress=st.progress_ms||0; S.duration=item?item.duration_ms:0; S.fetchedAt=performance.now();
@@ -705,6 +743,7 @@
     if((S.contextUri||"")!==(S.side?S.side.uri:"")) loadSide();
     const id=item?item.id||item.uri:null;
     if(id!==S.trackId){ S.trackId=id; S.trackUri=item?item.uri:null; renderTrack(item); markNowPlaying(); if(item && S.playing) $("app").querySelector(".deck").classList.remove("empty"); if(currentTab==="queue" && isPanelVisible()) loadQueue(); }
+    checkSideCrossing(st);
   }
   function renderTrack(item){
     if(!item){ $("title").textContent="Nothing playing"; $("artist").textContent="Pick a device and press play"; setArt(null); return; }
@@ -781,16 +820,40 @@
       if(tr.length<2 || (d.total && d.total>tr.length)){ S.side=null; drawBands(); return; }   // singles / very long albums: per-song
       const starts=[]; let acc=0; const index={};
       tr.forEach((t,i)=>{ starts.push(acc); acc+=t.dur||0; index[t.uri]=i; });
-      S.side={uri:ctx, tracks:tr, starts, total:acc, index};
+      // split into Side A / Side B at the song boundary closest to half the running time
+      let k=1, best=Infinity;
+      for(let j=1;j<tr.length;j++){ const d=Math.abs(starts[j]-acc/2); if(d<best){ best=d; k=j; } }
+      const sides = (tr.length>=4 && acc>=12*60*1000)
+        ? [{from:0,to:k-1,start:0,total:starts[k]}, {from:k,to:tr.length-1,start:starts[k],total:acc-starts[k]}]
+        : [{from:0,to:tr.length-1,start:0,total:acc}];
+      S.side={uri:ctx, tracks:tr, starts, total:acc, index, sides};
+      { const i=index[S.trackUri]; S.lpSideNow = (i==null) ? null : (sides.length===2 && i>=sides[1].from ? 1 : 0); }   // the side that's on now
       drawBands();
     }catch(e){}
   }
+  // ---- real record mode helpers ----
+  const lpPref=()=>store.get("lp")==="1";
+  const lpOn=()=>lpPref() && S.side && S.side.uri===S.contextUri && S.side.sides.length===2;
+  const sideOfIdx=i=>(S.side && S.side.sides.length===2 && i>=S.side.sides[1].from) ? 1 : 0;
+  function platterSide(){
+    if(!lpOn()) return 0;
+    if(S.runout) return S.runout.side;
+    if(S.lpSideNow!=null) return S.lpSideNow;
+    const i=S.side.index[S.trackUri]; return i==null ? 0 : sideOfIdx(i);
+  }
+  // the stretch of the album that's on the turntable right now (the whole album unless real record mode)
+  function span(){
+    const sd=S.side; if(!lpOn()) return {start:0,total:sd.total,from:0,to:sd.tracks.length-1};
+    return sd.sides[platterSide()];
+  }
+  let bandsKey="";
   function drawBands(){
     const svg=$("bands"); if(!svg) return;
-    if(!S.side){ svg.innerHTML=""; return; }
+    if(!S.side){ svg.innerHTML=""; bandsKey=""; return; }
+    const sp=span(); bandsKey=S.side.uri+"|"+sp.from;
     let h="";
-    S.side.starts.forEach((st,i)=>{ if(i===0) return;
-      const r=(R_OUT-(st/S.side.total)*(R_OUT-R_IN))*50;
+    S.side.starts.forEach((st0,i)=>{ if(i<=sp.from || i>sp.to) return;
+      const r=(R_OUT-((st0-sp.start)/sp.total)*(R_OUT-R_IN))*50;
       h+=`<circle cx="50" cy="50" r="${r.toFixed(2)}" fill="none" stroke="#050505" stroke-width=".42" opacity=".85"/><circle cx="50" cy="50" r="${(r+.3).toFixed(2)}" fill="none" stroke="#fff" stroke-width=".12" opacity=".07"/>`;
     });
     svg.innerHTML=h;
@@ -798,14 +861,14 @@
   // how far through the record the needle should be (0 = outer edge, 1 = label)
   function needleFraction(){
     const sd=S.side;
-    if(sd && sd.uri===S.contextUri && S.trackUri in sd.index){ const i=sd.index[S.trackUri]; return Math.min(1,(sd.starts[i]+currentProgress())/sd.total); }
+    if(sd && sd.uri===S.contextUri && S.trackUri in sd.index){ const i=sd.index[S.trackUri], sp=span(); return Math.max(0,Math.min(1,(sd.starts[i]-sp.start+currentProgress())/sp.total)); }
     return S.duration ? Math.min(1,currentProgress()/S.duration) : 0;
   }
   // which song and where in it, for a spot on the record
   function spotForFraction(f){
     const sd=S.side;
     if(sd && sd.uri===S.contextUri){
-      const ms=f*sd.total; let i=0; while(i+1<sd.starts.length && sd.starts[i+1]<=ms) i++;
+      const sp=span(), ms=sp.start+f*sp.total; let i=sp.from; while(i+1<=sp.to && sd.starts[i+1]<=ms) i++;
       return {album:true, i, track:sd.tracks[i], offset:Math.max(0,ms-sd.starts[i])};
     }
     return {album:false, offset:f*(S.duration||0)};
@@ -816,23 +879,40 @@
   const RPM_DEG = 200; // 33⅓ rpm
   function frame(now){
     const dt=Math.min(.1,(now-last)/1000); last=now;
-    const spinning=S.playing||S.cueing;
+    const spinning=(S.playing||S.cueing||!!S.runout) && !S.flipAnim;
     const target=spinning?RPM_DEG:0;
     const rate = spinning ? 4.5 : 1.6;           // spin up fast, coast down slowly
     vel += (target-vel)*Math.min(1,rate*dt);
     if(!spinning && vel<0.5) vel=0;
     angle=(angle+vel*dt)%360;
-    $("record").style.transform=`translateZ(3px) rotate(${angle}deg)`;
+    if(S.flipAnim){                                   // lift the record, turn it over, set it back down
+      const t=Math.min(1,(now-S.flipAnim.start)/1400), lift=Math.sin(Math.PI*t)*70;
+      const ry = t<.5 ? 180*t : -90+180*(t-.5);
+      if(t>=.5 && !S.flipAnim.swapped){ S.flipAnim.swapped=true; S.tagOverride=null; }
+      $("record").style.transform=`translateZ(${(3+lift).toFixed(1)}px) rotateY(${ry.toFixed(1)}deg) rotate(${angle}deg)`;
+      if(t>=1) S.flipAnim=null;
+    } else $("record").style.transform=`translateZ(3px) rotate(${angle}deg)`;
+    // side label + groove gaps follow the side that's on the platter
+    const lp=lpOn(), tag=$("sideTag");
+    tag.classList.toggle("on",lp);
+    if(lp){ const txt="SIDE "+(S.tagOverride!=null?"AB"[S.tagOverride]:"AB"[platterSide()]); if(tag.textContent!==txt) tag.textContent=txt; }
+    if(S.side && bandsKey!==S.side.uri+"|"+span().from) drawBands();
+    // the last song on this side is ending: stop, and let the needle ride the run-out groove
+    if(lp && S.playing && !S.busy && !S.dragArm && !S.runout){
+      const i=S.side.index[S.trackUri];
+      if(i!=null){ const sp=S.side.sides[sideOfIdx(i)]; if(i===sp.to && S.duration && S.duration-currentProgress()<700) endSide(sideOfIdx(i)); }
+    }
 
     // tonearm: on its rest when stopped; on the record at the real spot when playing
     let armTarget;
     if(S.dragArm){ armDeg=S.dragDeg; armTarget=armDeg; }
     else{
-      armTarget = (S.playing||S.cueing) ? angleForRatio(R_OUT - needleFraction()*(R_OUT-R_IN)) : ARM_REST;
+      armTarget = S.runout ? angleForRatio(R_IN-0.035)                                  // run-out groove, by the label
+        : (S.playing||S.cueing) ? angleForRatio(R_OUT - needleFraction()*(R_OUT-R_IN)) : ARM_REST;
       armDeg += (armTarget-armDeg)*Math.min(1,2.2*dt);
     }
     // in 3D the arm lifts, swings over, then lowers onto the vinyl
-    const down = !S.dragArm && S.playing && Math.abs(armDeg-armTarget)<1.2;
+    const down = !S.dragArm && (S.playing||S.runout) && Math.abs(armDeg-armTarget)<1.2;
     const zTarget = S.dragArm ? 22 : down ? 9 : 24;
     armZ += (zTarget-armZ)*Math.min(1,6*dt);
     $("arm").style.transform=`translateZ(${armZ.toFixed(1)}px) rotate(${armDeg.toFixed(2)}deg)`;
@@ -850,7 +930,7 @@
   const soon = (ms=450) => { clearTimeout(soonTimer); soonTimer=setTimeout(refresh, ms); };
   async function act(fn){ try{ await fn(); }catch(e){ apiError(e); } soon(); }
 
-  $("playBtn").onclick = () => { if(S.busy) return; if(S.playing) act(async()=>{
+  $("playBtn").onclick = () => { if(S.busy) return; if(S.runout){ flipRecord(); return; } if(S.playing) act(async()=>{
       Sound.lift(); S.playing=false; S.progress=currentProgress(); renderPlay(); expectState({playing:false}); await api("/me/player/pause",{method:"PUT"}); });
     else needleDown(); };
   async function needleDown(){                    // resume: platter spins, arm swings over, needle drops, then the music
@@ -866,7 +946,11 @@
     }catch(e){ S.cueing=false; renderPlay(); apiError(e); }
     finally{ S.busy=false; S.lockUntil=performance.now()+800; soon(); }
   }
-  $("nextBtn").onclick = () => act(()=>api("/me/player/next",{method:"POST"}));
+  $("nextBtn").onclick = () => {
+    if(S.runout){ flipRecord(); return; }
+    if(lpOn()){ const i=S.side.index[S.trackUri]; if(i!=null && i===S.side.sides[sideOfIdx(i)].to){ endSide(sideOfIdx(i)); return; } }   // last song on this side
+    act(()=>api("/me/player/next",{method:"POST"}));
+  };
   $("prevBtn").onclick = () => act(()=>{ if(currentProgress()>4000){ S.progress=0; S.fetchedAt=performance.now(); return api("/me/player/seek",{method:"PUT",query:{position_ms:0}}); } return api("/me/player/previous",{method:"POST"}); });
   $("shuffleBtn").onclick = () => act(()=>{ S.shuffle=!S.shuffle; renderToggles(); return api("/me/player/shuffle",{method:"PUT",query:{state:S.shuffle}}); });
   $("repeatBtn").onclick = () => act(()=>{ S.repeat = {off:"context",context:"track",track:"off"}[S.repeat]; renderToggles(); return api("/me/player/repeat",{method:"PUT",query:{state:S.repeat}}); });
@@ -1102,6 +1186,32 @@
       const o=c.createOscillator(), og=c.createGain(); o.type="sine"; o.frequency.setValueAtTime(120,t+.04); o.frequency.exponentialRampToValueAtTime(70,t+.2);
       og.gain.setValueAtTime(0.0001,t+.04); og.gain.exponentialRampToValueAtTime(0.18,t+.05); og.gain.exponentialRampToValueAtTime(0.0001,t+.25);
       o.connect(og).connect(out); o.start(t+.04); o.stop(t+.3);
+    },
+    runoutStart(){
+      const c=this.init(); if(!c) return;
+      this.runoutStop();
+      const src=c.createBufferSource(); src.buffer=this.crackle(); src.loop=true;
+      const hp=c.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=500;
+      const lp=c.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=6500;
+      const g=c.createGain(); g.gain.setValueAtTime(0.0001,c.currentTime); g.gain.linearRampToValueAtTime(0.42,c.currentTime+.6);
+      src.connect(hp).connect(lp).connect(g).connect(c.destination); src.start();
+      this._ro={src,g};
+      const click=()=>{                                      // the locked groove: a soft "thup" once per turn
+        const t=c.currentTime+0.01, o=c.createOscillator(), og=c.createGain();
+        o.type="sine"; o.frequency.setValueAtTime(85,t); o.frequency.exponentialRampToValueAtTime(45,t+.12);
+        og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(0.32,t+.005); og.gain.exponentialRampToValueAtTime(0.0001,t+.18);
+        o.connect(og).connect(c.destination); o.start(t); o.stop(t+.2);
+        const n=c.createBufferSource(); n.buffer=this.noise(); const bp=c.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=2200; bp.Q.value=.8;
+        const ng=c.createGain(); ng.gain.setValueAtTime(0.16,t); ng.gain.exponentialRampToValueAtTime(0.001,t+.04);
+        n.connect(bp).connect(ng).connect(c.destination); n.start(t, Math.random()*0.3); n.stop(t+.05);
+      };
+      click(); this._roTimer=setInterval(click, 1800);       // 33⅓ rpm = one turn every 1.8 s
+      this._roEnd=setTimeout(()=>this.runoutStop(), 60*1000); // the crackle stops after a minute; the record still waits to be flipped
+    },
+    runoutStop(){
+      clearInterval(this._roTimer); this._roTimer=0; clearTimeout(this._roEnd);
+      if(this._ro){ const {src,g}=this._ro, c=this.ctx; try{ g.gain.cancelScheduledValues(c.currentTime); g.gain.setValueAtTime(g.gain.value,c.currentTime); g.gain.linearRampToValueAtTime(0.0001,c.currentTime+.25); src.stop(c.currentTime+.3); }catch(e){} }
+      this._ro=null;
     },
     flick(){                                                                   // sleeve brushing past
       if(!this.active() || !this.ctx || this.ctx.state!=="running") return;
@@ -1400,6 +1510,8 @@
   // the needle lifts, (something changes), the needle drops, then the music
   async function needleMove(action, body){
     if(S.busy) return; S.busy=true; Sound.init(); S.lockUntil=performance.now()+6000;
+    clearRunout();
+    if(body && body.offset && body.offset.uri && S.side && body.context_uri===S.side.uri){ const i=S.side.index[body.offset.uri]; if(i!=null) S.lpSideNow=sideOfIdx(i); }
     S.pendingPlay=body||null;                     // kept until the new song is really playing
     try{
       if(S.playing){ liftNeedle(); S.playing=false; S.progress=currentProgress(); }
@@ -1470,6 +1582,7 @@
   const wait = ms => new Promise(r=>setTimeout(r,ms));
   async function spinUp(it, body){
     if(S.busy) return; S.busy=true;
+    clearRunout(); S.lpSideNow=null;
     S.pendingPlay=body;                                   // kept until the new song is really playing
     Sound.init();                                         // unlock audio inside the tap
     S.lockUntil=performance.now()+8000;
@@ -1522,6 +1635,7 @@
   // ---- swipe the record: needle lifts, record goes back in its sleeve, back to Cover Flow ----
   async function putAway(){
     if(S.busy) return;
+    clearRunout();
     const deck=document.querySelector(".deck");
     if(deck.classList.contains("empty") || (!S.art && !S.trackUri)) return;
     S.busy=true; Sound.init(); S.lockUntil=performance.now()+7000;
@@ -1632,6 +1746,67 @@
     renderBrowser(out, st.items, {start:startAt, pageSize:10, moreLabel:{album:"albums",artist:"artists",playlist:"playlists"}[type], more: st.more ? loadMore : null});
   }
 
+  // ================= real record mode: run-out groove and flipping =================
+  S.runout=null; S.lpSideNow=null; S.flipAnim=null; S.tagOverride=null;
+  function endSide(side){
+    if(S.runout) return;
+    S.runout={side}; S.lpSideNow=side;
+    S.progress=currentProgress(); S.playing=false; renderPlay();
+    expectState({playing:false});
+    api("/me/player/pause",{method:"PUT"}).catch(()=>{});
+    Sound.runoutStart();
+    $("flipBtn").textContent=`Side ${"AB"[side]} is over — tap the record to flip it ↻`;
+    $("flipBtn").classList.add("on");
+  }
+  function clearRunout(){
+    if(!S.runout) return;
+    S.runout=null; Sound.runoutStop(); $("flipBtn").classList.remove("on");
+  }
+  function checkSideCrossing(st){
+    if(!st || !lpOn() || S.busy || S.runout || S.flipAnim) return;
+    const i=S.side.index[S.trackUri]; if(i==null) return;
+    const sIdx=sideOfIdx(i);
+    if(S.lpSideNow==null){ S.lpSideNow=sIdx; return; }
+    if(sIdx!==S.lpSideNow && st.is_playing){                       // Spotify rolled on into the other side
+      const was=S.lpSideNow;
+      api("/me/player/seek",{method:"PUT",query:{position_ms:0}}).catch(()=>{});
+      endSide(was);
+    }
+  }
+  async function flipRecord(){
+    if(!S.runout || S.busy || !S.side) return;
+    const sd=S.side, from=S.runout.side, to=from===0?1:0;
+    Sound.init();
+    S.tagOverride=from; clearRunout();
+    S.lpSideNow=to;                                               // the arm lifts to its rest while the record turns over
+    await wait(700);
+    S.flipAnim={start:performance.now(), swapped:false};
+    await wait(1500);
+    const first=sd.tracks[sd.sides[to].from];
+    const body={context_uri:sd.uri, offset:{uri:first.uri}, position_ms:0};
+    S.trackUri=first.uri; S.duration=first.dur||S.duration; S.progress=0;
+    needleMove(()=>playCmd(body), body);
+  }
+  $("flipBtn").onclick=()=>flipRecord();
+
+  // ================= settings menu =================
+  function syncSettings(){
+    $("optLP").checked=lpPref();
+    $("opt3D").checked=$("app").classList.contains("d3");
+    $("optSfx").checked=Sound.on;
+  }
+  $("setBtn").onclick=e=>{ e.stopPropagation(); syncSettings(); $("setPanel").classList.toggle("on"); };
+  document.addEventListener("pointerdown",e=>{ if(!$("setPanel").contains(e.target) && e.target!==$("setBtn") && !$("setBtn").contains(e.target)) $("setPanel").classList.remove("on"); });
+  $("optLP").onchange=()=>{
+    store.set("lp",$("optLP").checked?"1":null);
+    if(!$("optLP").checked){ clearRunout(); S.lpSideNow=null; }
+    else { S.lpSideNow=null; }
+    drawBands();
+    toast($("optLP").checked ? "Real record mode on — albums now have two sides" : "Real record mode off");
+  };
+  $("opt3D").onchange=()=>{ setTilt($("opt3D").checked); };
+  $("optSfx").onchange=()=>{ if(!!$("optSfx").checked!==Sound.on) $("sfxBtn").click(); setTimeout(syncSettings,50); };
+
   // ================= 3D turntable =================
   (function build3D(){
     const deck=$("deck"), plinth=deck.querySelector(".plinth"), platter=deck.querySelector(".platter");
@@ -1650,6 +1825,44 @@
   setTilt(store.get("flat")!=="1");
   $("tiltBtn").onclick=()=>{ setTilt(!$("app").classList.contains("d3")); toast($("app").classList.contains("d3")?"3D turntable":"Flat turntable"); };
   setTimeout(placeArmRest,50); window.addEventListener("resize",()=>setTimeout(placeArmRest,700));
+
+  // ================= the little hand: turn the 3D turntable =================
+  (function orbit(){
+    const h=$("orbitHandle"), deck=$("deck");
+    const DEF={tilt:34, spin:0};
+    let view=DEF; try{ view={...DEF,...JSON.parse(store.get("view")||"{}")}; }catch(e){}
+    const apply=()=>{ deck.style.setProperty("--tilt",view.tilt.toFixed(1)+"deg"); deck.style.setProperty("--spin",view.spin.toFixed(1)+"deg"); };
+    apply();
+    let drag=null, lastTap=0;
+    h.addEventListener("pointerdown",e=>{
+      e.stopPropagation(); e.preventDefault();
+      try{ h.setPointerCapture(e.pointerId); }catch(_){}
+      drag={x:e.clientX,y:e.clientY,tilt:view.tilt,spin:view.spin,moved:false};
+      h.classList.add("on"); deck.classList.add("orbiting"); document.body.classList.add("grabbing");
+    });
+    h.addEventListener("pointermove",e=>{
+      if(!drag) return;
+      const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+      if(Math.hypot(dx,dy)>3) drag.moved=true;
+      view={ spin: drag.spin + dx*0.45,                                  // left/right: turn it around
+             tilt: Math.max(4, Math.min(72, drag.tilt - dy*0.3)) };      // up/down: lay it back / stand it up
+      apply();
+    });
+    const end=()=>{
+      if(!drag) return;
+      const moved=drag.moved; drag=null;
+      h.classList.remove("on"); deck.classList.remove("orbiting"); document.body.classList.remove("grabbing");
+      view.spin=((view.spin+180)%360+360)%360-180;                       // keep the number tidy
+      apply(); store.set("view",JSON.stringify(view));
+      if(!moved){                                                         // double-tap the hand: back to the normal view
+        const now=performance.now();
+        if(now-lastTap<350){ view={...DEF}; apply(); store.set("view",null); toast("View reset"); lastTap=0; }
+        else lastTap=now;
+      }
+    };
+    h.addEventListener("pointerup",end); h.addEventListener("pointercancel",end);
+    h.addEventListener("dblclick",e=>e.preventDefault());
+  })();
 
   // ================= grab the tonearm =================
   (function armDrag(){
@@ -1736,6 +1949,8 @@
       try{
         await wait(Sound.lead(true));
         const sp=d.sp, pos=Math.round(sp.offset);
+        clearRunout();
+        if(sp.album) S.lpSideNow=sideOfIdx(sp.i);
         if(sp.album && sp.track.uri!==S.trackUri) await playCmd({context_uri:S.side.uri, offset:{uri:sp.track.uri}, position_ms:pos});
         else{
           await api("/me/player/seek",{method:"PUT",query:{position_ms:pos}});
@@ -1806,6 +2021,7 @@
     }else{
       lastTap=now; clearTimeout(tapTimer);
       tapTimer=setTimeout(()=>{                                     // single tap
+        if(S.runout){ flipRecord(); return; }                      // side is over: tapping the record flips it
         if(stageOn) toggleHud();
         else if(isLaptop()) setStage(true);
       },330);
