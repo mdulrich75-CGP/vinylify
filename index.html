@@ -497,7 +497,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v28</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v29</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -637,7 +637,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "28";
+  const APP_VERSION = "29";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -2644,7 +2644,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
   function placeCamera(){
     const v=V.view(); const w=canvas.clientWidth||1, h=canvas.clientHeight||1;
     const cr=canvas.getBoundingClientRect(), dw=(canvas.parentElement||canvas).getBoundingClientRect();
-    const key=[v.tilt,v.spin,w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
+    const fy=flipG.position.y-(REC_Y+REC_H/2);                // how high the record is lifted (flipping)
+    const key=[v.tilt,v.spin,fy.toFixed(3),w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
     if(key===camKey) return; camKey=key;
     camera.aspect=w/h;
     const polar = THREE.MathUtils.degToRad(Math.max(6, Math.min(80, 14 + v.tilt*1.05)));
@@ -2660,7 +2661,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
     for(let it=0; it<4; it++){
       put();
       let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-      for(const p of fitPts){ const q=p.clone().project(camera); const px=cr.left+(q.x+1)/2*w, py=cr.top+(1-q.y)/2*h;
+      const pts = fy>0.02 ? fitPts.concat([new THREE.Vector3(-0.99,flipG.position.y+0.99,0), new THREE.Vector3(0.99,flipG.position.y+0.99,0), new THREE.Vector3(0,flipG.position.y+0.99,0.3)]) : fitPts;
+      for(const p of pts){ const q=p.clone().project(camera); const px=cr.left+(q.x+1)/2*w, py=cr.top+(1-q.y)/2*h;
         x0=Math.min(x0,px); x1=Math.max(x1,px); y0=Math.min(y0,py); y1=Math.max(y1,py); }
       box={x0,x1,y0,y1};
       const k=Math.max((x1-x0)/Math.max(40,reg.r-reg.l), (y1-y0)/Math.max(40,reg.b-reg.t));
@@ -2766,9 +2768,12 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
     if(S.flipAnim){
       const t=Math.min(1,(now-S.flipAnim.start)/1700);
       const up = t<.25 ? t/.25 : t>.75 ? (1-t)/.25 : 1;
-      const tt=Math.max(0,Math.min(1,(t-.2)/.6));
-      flipG.position.y = REC_Y+REC_H/2 + up*0.55;
-      flipG.rotation.x = Math.PI*tt;
+      let tt=Math.max(0,Math.min(1,(t-.2)/.6)); tt=tt*tt*(3-2*tt);       // ease in and out of the turn
+      const rot=Math.PI*tt;
+      // while it turns, the record stands up on edge: keep its lower half clear of the platter and the spindle
+      const clear = rot>0 ? 0.985*Math.abs(Math.sin(rot)) + 0.13 : 0;
+      flipG.position.y = REC_Y+REC_H/2 + Math.max(up*0.55, clear);
+      flipG.rotation.x = rot;
     } else { flipG.position.y = REC_Y+REC_H/2; flipG.rotation.x = 0; }
     // labels and grooves follow the music
     loadArt(S.big||S.art||null); updateLabels(); updateGrooves();
