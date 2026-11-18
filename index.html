@@ -302,7 +302,6 @@
   #app.fullpage .artist{font-size:clamp(14px,2.2vh,20px)}
   #app.fullpage .progress,#app.fullpage .controls,#app.fullpage .volume,#app.fullpage #stageExit{transition:opacity .5s}
   #app.fullpage:not(.hud) #stageExit{opacity:0;pointer-events:none}
-  #app.fullpage:not(.hud){cursor:none}
   @media (max-height:520px){ #app.fullpage .deck-wrap{width:min(60vw,66vh)} #app.fullpage .player{gap:1vh} }
 
   /* ---------- hovering song list for the record that's playing ---------- */
@@ -497,7 +496,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v29</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v30</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -535,7 +534,7 @@
         </div>
       </div>
 
-      <div class="hint" id="hint">Tap the record for controls · drag the arm to jump · double-tap to exit · swipe to put it away</div>
+      <div class="hint" id="hint">Tap the record for controls · drag the arm to jump · double-tap to exit</div>
       <div class="transport" id="transport">
       <div class="meta">
         <div class="title" id="title">Nothing playing</div>
@@ -637,7 +636,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "29";
+  const APP_VERSION = "30";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1623,7 +1622,7 @@
     clearRunout(); S.lpSideNow=null;
     S.pendingPlay=body;                                   // kept until the new song is really playing
     Sound.init();                                         // unlock audio inside the tap
-    S.lockUntil=performance.now()+8000;
+    S.lockUntil=performance.now()+11000;
     const intro=$("intro"), cover=$("stCover"), disc=$("stDisc");
     if(window.innerWidth<900) closePanel();
     // reset the props
@@ -1633,7 +1632,19 @@
     $("stFront").innerHTML = it.big||it.art ? "" : `<div class="ph">${esc(it.name)}</div>`;
     $("stLbl").style.backgroundImage = it.art ? `url("${it.art}")` : "";
     void intro.offsetWidth; intro.classList.remove("noanim");
+    const dk=document.querySelector(".deck");
     try{
+      // a record is still on the platter: needle up, arm home, lift it off and set it aside first
+      if(!dk.classList.contains("empty") && (S.art || S.trackUri)){
+        const was=S.playing||S.cueing;
+        if(S.playing) liftNeedle();
+        S.playing=false; S.cueing=false; S.progress=currentProgress(); S.fetchedAt=performance.now(); renderPlay();
+        await wait(was ? 1100 : 500);                     // arm swings back to its rest, platter coasts down
+        S.removeAnim={start:performance.now()}; Sound.flick();
+        await wait(STYLE.cur==="real" ? 1000 : 450);
+        dk.classList.add("empty"); S.removeAnim=null;
+        await wait(250);
+      }
       intro.classList.add("on");                          // sleeve rises into view
       // meanwhile lift the needle off whatever was playing
       if(S.playing) liftNeedle();
@@ -1652,7 +1663,7 @@
       await wait(760);
       // record is down: swap the real deck to the new album
       setArt(it.art,it.big); $("title").textContent=it.name; $("artist").textContent=it.sub||"";
-      S.duration=0; S.trackId="__pending";
+      S.duration=0; S.trackId="__pending"; dk.classList.remove("empty");
       intro.classList.add("noanim"); intro.classList.remove("leave"); disc.style.transition=""; disc.style.transform=""; cover.style.transform="";
       void intro.offsetWidth; intro.classList.remove("noanim");
       if(window.innerWidth>=900 && !stageOn) setStage(true); // laptop: turntable comes forward
@@ -2128,7 +2139,6 @@
   function endGesture(x,y){
     if(!gest) return;
     const dist=Math.hypot(x-gest.x,y-gest.y), dt=performance.now()-gest.t; gest=null;
-    if(dist>70 && dt<900){ lastTap=0; clearTimeout(tapTimer); putAway(); return; }   // swipe → back in the sleeve
     if(dist>12) return;
     const now=performance.now();
     if(now-lastTap<320){                                            // double tap / double click
@@ -2645,15 +2655,28 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
     const v=V.view(); const w=canvas.clientWidth||1, h=canvas.clientHeight||1;
     const cr=canvas.getBoundingClientRect(), dw=(canvas.parentElement||canvas).getBoundingClientRect();
     const fy=flipG.position.y-(REC_Y+REC_H/2);                // how high the record is lifted (flipping)
-    const key=[v.tilt,v.spin,fy.toFixed(3),w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
+    const key=[document.getElementById('app').classList.contains('fullpage'),v.tilt,v.spin,fy.toFixed(3),w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
     if(key===camKey) return; camKey=key;
     camera.aspect=w/h;
     const polar = THREE.MathUtils.degToRad(Math.max(6, Math.min(80, 14 + v.tilt*1.05)));
     const az = THREE.MathUtils.degToRad(-v.spin);
     // the room we may fill: around the deck area, never off the screen
     const M=8;
-    const reg={ l:Math.max(M, cr.left, dw.left-dw.width*0.45), r:Math.min(innerWidth-M, cr.right, dw.right+dw.width*0.45),
-                t:Math.max(M, cr.top, dw.top-dw.height*0.25), b:Math.min(innerHeight-M, cr.bottom, dw.bottom+dw.height*0.25) };
+    const full=document.getElementById('app').classList.contains('fullpage');
+    let reg;
+    if(full){                                              // full page: centred in the window
+      const mx=Math.max(M, innerWidth*0.07), my=Math.max(M, innerHeight*0.09);
+      const cx=innerWidth/2, cy=innerHeight/2;
+      const hw=Math.min(cx-mx, cx-cr.left, cr.right-cx), hh=Math.min(cy-my, cy-cr.top, cr.bottom-cy);
+      reg={ l:cx-hw, r:cx+hw, t:cy-hh, b:cy+hh };
+    } else {
+      const pe=canvas.parentElement, cs=pe?getComputedStyle(pe):null;
+      const dl=dw.left+(cs?parseFloat(cs.paddingLeft)||0:0), dr=dw.right-(cs?parseFloat(cs.paddingRight)||0:0), ww=dr-dl;
+      reg={ l:Math.max(M, dl-ww*0.45), r:Math.min(innerWidth-M, dr+ww*0.45),
+            t:Math.max(M, dw.top-dw.height*0.25), b:Math.min(innerHeight-M, dw.bottom+dw.height*0.25) };
+      // keep it centred on the deck area when the screen edge trims one side
+      const cx=(dl+dr)/2, half=Math.min(cx-reg.l, reg.r-cx); reg.l=cx-half; reg.r=cx+half;
+    }
     let dist=6;
     const put=()=>{ camera.position.set(target.x + dist*Math.sin(polar)*Math.sin(az), target.y + dist*Math.cos(polar), target.z + dist*Math.sin(polar)*Math.cos(az));
       camera.lookAt(target); camera.updateMatrixWorld(); camera.clearViewOffset(); camera.updateProjectionMatrix(); };
@@ -2775,6 +2798,14 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
       flipG.position.y = REC_Y+REC_H/2 + Math.max(up*0.55, clear);
       flipG.rotation.x = rot;
     } else { flipG.position.y = REC_Y+REC_H/2; flipG.rotation.x = 0; }
+    // a new record was picked: lift this one off the spindle and set it aside, off to the left
+    if(S.removeAnim){
+      const t=Math.min(1,(now-S.removeAnim.start)/950);
+      let u=Math.min(1,t/0.35); u=u*u*(3-2*u);
+      const v=Math.max(0,(t-0.3)/0.7), v2=v*v;
+      flipG.position.y = REC_Y+REC_H/2 + u*0.3 + v2*0.35;
+      flipG.position.x = -v2*4.6; flipG.position.z = v2*0.5; flipG.rotation.z = v2*0.3;
+    } else { flipG.position.x=0; flipG.position.z=0; flipG.rotation.z=0; }
     // labels and grooves follow the music
     loadArt(S.big||S.art||null); updateLabels(); updateGrooves();
     // tonearm: follow Vinylify's arm (swing) and cue height (lift)
