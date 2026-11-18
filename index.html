@@ -439,6 +439,15 @@
   #setPanel h3{margin:8px 12px 6px;font-family:"DM Serif Display",serif;font-weight:400;font-size:20px}
   .opt{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;border-radius:14px;cursor:pointer}
   .opt:hover{background:rgba(244,232,214,.05)}
+  .seg{display:flex;gap:4px;padding:4px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--line)}
+  .seg button{flex:1;padding:8px 6px;border-radius:9px;font-size:13px;color:var(--muted);font-weight:600}
+  .seg button.on{background:var(--accent);color:#1b120a}
+  .seg button:disabled{opacity:.35}
+  #glDeck{position:absolute;left:-26%;right:-40%;top:-30%;bottom:-34%;width:166%;height:164%;display:none;z-index:3;pointer-events:none}
+  #app.real.glready #glDeck{display:block}
+  #app.real.glready .orbit{left:var(--gx,-4%);top:var(--gy,auto);bottom:auto}
+  #app.real.glready .deck{visibility:hidden}
+  #app.real .deck-wrap{overflow:visible}
   .opt input{appearance:none;-webkit-appearance:none;flex:none;width:22px;height:22px;margin-top:1px;border-radius:7px;border:2px solid var(--muted);display:grid;place-items:center;cursor:pointer}
   .opt input:checked{background:var(--accent);border-color:var(--accent)}
   .opt input:checked::after{content:"✓";color:#1b120a;font-weight:800;font-size:14px}
@@ -488,7 +497,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v26</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v27</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -605,7 +614,13 @@
 <div id="setPanel" role="dialog" aria-label="Settings">
   <h3>Settings</h3>
   <label class="opt"><input type="checkbox" id="optLP"><div><div class="t1">Real record mode</div><div class="t2">Albums play in two sides, like an LP. When a side ends you'll hear the run-out groove until you flip the record.</div></div></label>
-  <label class="opt"><input type="checkbox" id="opt3D"><div><div class="t1">3D turntable</div><div class="t2">Tilted view with a wooden base. Off = flat, from above.</div></div></label>
+  <div class="opt" style="cursor:default;display:block">
+    <div class="t1" style="margin-bottom:8px">Turntable</div>
+    <div class="seg" id="styleSeg">
+      <button data-style="real">Realistic</button><button data-style="3d">Classic 3D</button><button data-style="flat">Flat</button>
+    </div>
+    <div class="t2" id="styleNote" style="margin-top:8px">Realistic: real wood, metal and vinyl with lighting and shadows. Classic 3D and Flat are lighter for older screens.</div>
+  </div>
   <label class="opt"><input type="checkbox" id="optSfx"><div><div class="t1">Record sounds</div><div class="t2">Needle drop, crackle and run-out groove. Muted automatically while music plays on the phone you're holding.</div></div></label>
 </div>
 <div id="toast"></div>
@@ -622,7 +637,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "26";
+  const APP_VERSION = "27";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1629,7 +1644,7 @@
       disc.style.transform="translateX(58%) rotate(140deg)"; // record slides out
       await wait(820);
       // fly the record onto the platter
-      const dr=$("record").getBoundingClientRect(), cr=disc.getBoundingClientRect();
+      const dr=recordRect(), cr=disc.getBoundingClientRect();
       const dx=(dr.left+dr.width/2)-(cr.left+cr.width/2), dy=(dr.top+dr.height/2)-(cr.top+cr.height/2), sc=dr.width/cr.width;
       disc.style.transition="transform .75s cubic-bezier(.5,0,.2,1)";
       disc.style.transform=`translateX(58%) translate(${dx}px,${dy}px) scale(${sc}) rotate(400deg)`;
@@ -1677,7 +1692,7 @@
       intro.classList.add("noanim","leave");
       cover.style.transform="rotateY(-168deg)"; disc.style.transition=""; disc.style.transform="translateX(58%)";
       void intro.offsetWidth;
-      const dr=$("record").getBoundingClientRect(), cr=disc.getBoundingClientRect();
+      const dr=recordRect(), cr=disc.getBoundingClientRect();
       const dx=(dr.left+dr.width/2)-(cr.left+cr.width/2), dy=(dr.top+dr.height/2)-(cr.top+cr.height/2), sc=dr.width/cr.width;
       disc.style.transform=`translateX(58%) translate(${dx}px,${dy}px) scale(${sc}) rotate(${angle}deg)`;
       void intro.offsetWidth;
@@ -1819,7 +1834,8 @@
   // ================= settings menu =================
   function syncSettings(){
     $("optLP").checked=lpPref();
-    $("opt3D").checked=$("app").classList.contains("d3");
+    document.querySelectorAll("#styleSeg button").forEach(b=>{ b.classList.toggle("on",b.dataset.style===STYLE.cur); b.disabled = b.dataset.style==="real" && !STYLE.glOk; });
+    if(!STYLE.glOk) $("styleNote").textContent="This screen can't show the Realistic turntable, so Classic 3D and Flat are available.";
     $("optSfx").checked=Sound.on;
   }
   $("setBtn").onclick=e=>{ e.stopPropagation(); syncSettings(); $("setPanel").classList.toggle("on"); };
@@ -1831,7 +1847,7 @@
     drawBands();
     toast($("optLP").checked ? "Real record mode on — albums now have two sides" : "Real record mode off");
   };
-  $("opt3D").onchange=()=>{ setTilt($("opt3D").checked); };
+  document.querySelectorAll("#styleSeg button").forEach(b=>b.onclick=()=>{ setStyle(b.dataset.style); syncSettings(); });
   $("optSfx").onchange=()=>{ if(!!$("optSfx").checked!==Sound.on) $("sfxBtn").click(); setTimeout(syncSettings,50); };
 
   // ================= 3D turntable =================
@@ -1865,9 +1881,22 @@
     const r=$("armrest"); r.style.left=x+"px"; r.style.top=y+"px"; r.style.transform="translateZ(27px)";
     (window.__armRestPosts||[]).forEach(e=>{ e.style.left=x+"px"; e.style.top=y+"px"; });
   }
-  function setTilt(on){ $("app").classList.toggle("d3",on); $("tiltBtn").textContent=on?"3D":"2D"; $("tiltBtn").classList.toggle("on",on); store.set("flat",on?null:"1"); }
-  setTilt(store.get("flat")!=="1");
-  $("tiltBtn").onclick=()=>{ setTilt(!$("app").classList.contains("d3")); toast($("app").classList.contains("d3")?"3D turntable":"Flat turntable"); };
+  // Turntable style: "real" (WebGL, photo-real), "3d" (classic CSS 3D), "flat"
+  const STYLE={cur:"3d", glOk:(()=>{ try{ const c=document.createElement("canvas"); return !!(window.WebGLRenderingContext && (c.getContext("webgl2")||c.getContext("webgl"))); }catch(e){ return false; } })()};
+  function setStyle(st,quiet){
+    if(st==="real" && !STYLE.glOk) st="3d";
+    STYLE.cur=st;
+    $("app").classList.toggle("d3", st!=="flat");
+    $("app").classList.toggle("real", st==="real");
+    $("tiltBtn").textContent = st==="real" ? "REAL" : st==="3d" ? "3D" : "2D";
+    $("tiltBtn").classList.toggle("on", st!=="flat");
+    store.set("style",st); store.set("flat",null);
+    document.dispatchEvent(new CustomEvent("vinyl-style",{detail:st}));
+    if(!quiet) toast(st==="real" ? "Realistic turntable" : st==="3d" ? "Classic 3D turntable" : "Flat turntable");
+  }
+  function setTilt(on){ setStyle(on ? (STYLE.glOk?"real":"3d") : "flat", true); }
+  setStyle(store.get("style") || (store.get("flat")==="1" ? "flat" : (STYLE.glOk ? "real" : "3d")), true);
+  $("tiltBtn").onclick=()=>{ const order=STYLE.glOk?["real","3d","flat"]:["3d","flat"]; setStyle(order[(order.indexOf(STYLE.cur)+1)%order.length]); };
   setTimeout(placeArmRest,50); window.addEventListener("resize",()=>setTimeout(placeArmRest,700));
 
   // ================= the little hand: turn the 3D turntable =================
@@ -1875,7 +1904,7 @@
     const h=$("orbitHandle"), deck=$("deck");
     const DEF={tilt:34, spin:0};
     let view=DEF; try{ view={...DEF,...JSON.parse(store.get("view")||"{}")}; }catch(e){}
-    const apply=()=>{ deck.style.setProperty("--tilt",view.tilt.toFixed(1)+"deg"); deck.style.setProperty("--spin",view.spin.toFixed(1)+"deg"); };
+    const apply=()=>{ deck.style.setProperty("--tilt",view.tilt.toFixed(1)+"deg"); deck.style.setProperty("--spin",view.spin.toFixed(1)+"deg"); window.__view={...view}; };
     apply();
     let drag=null, lastTap=0;
     h.addEventListener("pointerdown",e=>{
@@ -2011,7 +2040,49 @@
       S.lockUntil=performance.now()+1500; soon(1800);
     }
     [grab,grab2].forEach(g=>{ g.addEventListener("pointerup",release); g.addEventListener("pointercancel",release); });
+    // the realistic (WebGL) turntable drives the same logic: it works out the arm angle, we do the rest
+    S.armApi={
+      begin(){ if(S.busy) return false; Sound.init(); wasPlaying=S.playing; drag={moved:false, x0:0, y0:0, deg0:armDeg, gear:1, api:true}; return true; },
+      move(deg,x,y){
+        if(!drag) return;
+        if(!drag.moved){
+          drag.moved=true;
+          drag_keptPlaying = S.playing && isPhoneDev(S.device);
+          if(S.playing){ liftNeedle(); S.progress=currentProgress(); S.fetchedAt=performance.now(); S.playing=false; S.cueing=true; }
+          S.dragArm=true; S.lockUntil=performance.now()+60000; document.body.classList.add("grabbing");
+        }
+        S.dragDeg=Math.max(-10,Math.min(60,deg));
+        const d=describe(S.dragDeg); drag.d=d;
+        tip.innerHTML=d.html; tip.style.left=x+"px"; tip.style.top=y+"px"; tip.classList.add("on");
+      },
+      end(){ return release(); }
+    };
   })();
+
+  // ================= bridge for the realistic (WebGL) turntable =================
+  let recordRectProvider=null;
+  function recordRect(){ if(STYLE.cur==="real" && recordRectProvider){ try{ const r=recordRectProvider(); if(r && r.width>10) return r; }catch(e){} } return $("record").getBoundingClientRect(); }
+  function bandFractions(){
+    if(!S.side) return [];
+    const sp=span(), out=[];
+    S.side.starts.forEach((st0,i)=>{ if(i>sp.from && i<=sp.to) out.push((st0-sp.start)/sp.total); });
+    return out;
+  }
+  window.VINYL={
+    S, R_OUT, R_IN, ARM_REST,
+    ratioForAngle, angleForRatio,
+    angle:()=>angle, armDeg:()=>S.dragArm?S.dragDeg:armDeg, armZ:()=>armZ,
+    sideLetter:()=>"AB"[S.tagOverride!=null?S.tagOverride:platterSide()],
+    otherLetter:()=>"AB"[(S.tagOverride!=null?S.tagOverride:platterSide())===0?1:0],
+    lp:()=>lpOn(),
+    bands:()=>bandFractions(),
+    empty:()=>document.querySelector(".deck").classList.contains("empty"),
+    view:()=>window.__view||{tilt:34,spin:0},
+    togglePlay:()=>$("playBtn").click(),
+    toast:(m)=>toast(m),
+    setRecordRectProvider:(f)=>{ recordRectProvider=f; },
+    glFailed:()=>{ const prev=store.get("style"); STYLE.glOk=false; if(STYLE.cur==="real") setStyle("3d",true); if(prev==="real"||!prev) store.set("style",prev); syncSettings(); },
+  };
 
   // ================= full-page record mode =================
   let stageOn=false, hudTimer=0, wakeLock=null, wentFS=false;
@@ -2214,6 +2285,494 @@
   }
   boot();
 })();
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module" id="glScript">
+// ================= Realistic turntable (WebGL / three.js) =================
+// Everything Vinylify already knows — spin, arm position, lift, flip, sides, album art — is read
+// from window.VINYL each frame and drawn as a real 3D object with real light and shadows.
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+(function initGL(){
+  const V = window.VINYL;
+  if(!V) return;
+  const wrap = document.querySelector('.deck-wrap');
+  const canvas = document.createElement('canvas');
+  canvas.id = 'glDeck';
+  wrap.appendChild(canvas);
+
+  let renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, powerPreference:'high-performance' });
+  }catch(e){ canvas.remove(); V.glFailed(); return; }
+  let maxDPR = Math.min(window.devicePixelRatio||1, 2);
+  renderer.setPixelRatio(maxDPR);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const ANISO = renderer.capabilities.getMaxAnisotropy();
+
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.85;
+
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 60);
+
+  // ---------- lights ----------
+  const key = new THREE.DirectionalLight(0xfff1dc, 2.4);
+  key.position.set(-2.6, 5.2, 2.2);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left=-2.6; key.shadow.camera.right=2.8; key.shadow.camera.top=2.6; key.shadow.camera.bottom=-2.6;
+  key.shadow.camera.near=1; key.shadow.camera.far=12;
+  key.shadow.bias=-0.0004; key.shadow.normalBias=0.012; key.shadow.radius=4;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xbfd4ff, 0.55); rim.position.set(3.5, 2.2, -3); scene.add(rim);
+  scene.add(new THREE.HemisphereLight(0xfff4e6, 0x20140a, 0.35));
+
+  // ---------- procedural textures ----------
+  function noise2(seed){                              // smooth value noise
+    const P=new Uint8Array(512); const p=[]; for(let i=0;i<256;i++) p[i]=i;
+    let s=seed; const rnd=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
+    for(let i=255;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; }
+    for(let i=0;i<512;i++) P[i]=p[i&255];
+    const g=(h)=>(P[h]/255);
+    const f=t=>t*t*(3-2*t);
+    return (x,y)=>{
+      const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+      const a=g(P[(xi&255)]+(yi&255)), b=g(P[((xi+1)&255)]+(yi&255)), c=g(P[(xi&255)]+((yi+1)&255)), d=g(P[((xi+1)&255)]+((yi+1)&255));
+      const u=f(xf), v=f(yf);
+      return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+    };
+  }
+  function woodTexture(){                             // walnut with long grain and a few figure swirls
+    const W=1024, H=1024, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d'), img=ctx.createImageData(W,H), d=img.data;
+    const n1=noise2(7), n2=noise2(19), n3=noise2(31);
+    const dark=[40,22,11], mid=[74,43,23], light=[104,64,37];
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        // grain runs the long way (x); it wanders gently and bunches up here and there
+        const warp = n1(x*0.0012, y*0.003)*9 + n2(x*0.005, y*0.01)*1.6;
+        const ring = Math.sin(y*0.05 + warp);
+        const streak = n3(x*0.0025, y*0.55);                 // long fine fibre lines
+        const fine = n2(x*0.25, y*0.9);
+        let t = 0.5+0.5*ring; t = Math.pow(t, 1.25);
+        t = t*0.55 + streak*0.33 + fine*0.12;
+        const c = t<0.5 ? mix(dark,mid,t*2) : mix(mid,light,(t-0.5)*2);
+        const pore = (n3(x*0.7,y*1.4)>0.86) ? 0.86 : 1;
+        const i=(y*W+x)*4; d[i]=c[0]*pore; d[i+1]=c[1]*pore; d[i+2]=c[2]*pore; d[i+3]=255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+    const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=ANISO;
+    return t;
+    function mix(a,b,k){ return [a[0]+(b[0]-a[0])*k, a[1]+(b[1]-a[1])*k, a[2]+(b[2]-a[2])*k]; }
+  }
+  function strobeTexture(){                           // the platter rim's strobe dots
+    const W=2048, H=128, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d');
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#e9e9e9'); g.addColorStop(.5,'#bdbdbd'); g.addColorStop(1,'#d6d6d6');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const rows=[[180,22],[184,50],[217,78],[222,104]];
+    ctx.fillStyle='#2b2b2b';
+    rows.forEach(([n,y])=>{ for(let i=0;i<n;i++){ ctx.beginPath(); ctx.ellipse((i+0.5)*W/n, y, W/n*0.28, 7, 0, 0, Math.PI*2); ctx.fill(); } });
+    const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=ANISO; t.wrapS=THREE.RepeatWrapping;
+    return t;
+  }
+  function brushedTexture(){                          // concentric brushing for metal tops
+    const S=1024, cv=document.createElement('canvas'); cv.width=cv.height=S;
+    const ctx=cv.getContext('2d'); ctx.fillStyle='#8a8a8a'; ctx.fillRect(0,0,S,S);
+    const n=noise2(3);
+    for(let r=2;r<S/2;r+=1){ const v=118+n(r*0.3,1)*40|0; ctx.strokeStyle=`rgb(${v},${v},${v})`; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(S/2,S/2,r,0,Math.PI*2); ctx.stroke(); }
+    const t=new THREE.CanvasTexture(cv); t.anisotropy=ANISO; return t;
+  }
+  // vinyl surface: fine grooves, a smooth lead-in, smooth gaps between songs, a smooth run-out
+  const GROOVE={inner:0.44, outer:0.95};
+  function grooveCanvas(bands){
+    const S=2048, cv=document.createElement('canvas'); cv.width=cv.height=S;
+    const ctx=cv.getContext('2d'), c=S/2, R=S/2*0.985/0.985;
+    ctx.fillStyle='#050505'; ctx.fillRect(0,0,S,S);
+    const rOuter=GROOVE.outer*c, rInner=GROOVE.inner*c;
+    const n=noise2(11);
+    ctx.lineWidth=1;
+    for(let r=rInner; r<rOuter; r+=1.15){
+      const v = 9 + (n(r*0.05,2)*6|0) + ((r|0)%2?2:0);
+      ctx.strokeStyle=`rgb(${v},${v},${v})`;
+      ctx.beginPath(); ctx.arc(c,c,r,0,Math.PI*2); ctx.stroke();
+    }
+    // song gaps: a smooth, darker band
+    (bands||[]).forEach(f=>{
+      const r=(GROOVE.outer - f*(GROOVE.outer-GROOVE.inner))*c;
+      ctx.lineWidth=5; ctx.strokeStyle='#020202'; ctx.beginPath(); ctx.arc(c,c,r,0,Math.PI*2); ctx.stroke();
+    });
+    return cv;
+  }
+  function grooveRoughCanvas(bands){                  // grooves scatter light, gaps & lead-in are glossy
+    const S=1024, cv=document.createElement('canvas'); cv.width=cv.height=S;
+    const ctx=cv.getContext('2d'), c=S/2;
+    ctx.fillStyle='#262626'; ctx.fillRect(0,0,S,S);                     // smooth (glossy) by default
+    const rOuter=GROOVE.outer*c, rInner=GROOVE.inner*c;
+    for(let r=rInner; r<rOuter; r+=0.75){ const v=(r|0)%2?100:70; ctx.strokeStyle=`rgb(${v},${v},${v})`; ctx.lineWidth=0.75; ctx.beginPath(); ctx.arc(c,c,r,0,Math.PI*2); ctx.stroke(); }
+    (bands||[]).forEach(f=>{ const r=(GROOVE.outer - f*(GROOVE.outer-GROOVE.inner))*c; ctx.lineWidth=3; ctx.strokeStyle='#202020'; ctx.beginPath(); ctx.arc(c,c,r,0,Math.PI*2); ctx.stroke(); });
+    return cv;
+  }
+
+  // ---------- materials ----------
+  const woodMat = new THREE.MeshPhysicalMaterial({ map:woodTexture(), roughness:0.55, clearcoat:0.7, clearcoatRoughness:0.22 });
+  const chrome  = new THREE.MeshStandardMaterial({ color:0xe8e8e8, metalness:1, roughness:0.16 });
+  const satin   = new THREE.MeshStandardMaterial({ color:0xb9b9b9, metalness:1, roughness:0.38 });
+  const blackGloss = new THREE.MeshPhysicalMaterial({ color:0x0b0b0b, roughness:0.25, clearcoat:0.6 });
+  const blackMatte = new THREE.MeshStandardMaterial({ color:0x111111, roughness:0.85 });
+  const rubber  = new THREE.MeshStandardMaterial({ color:0x161616, roughness:0.95 });
+  const strobeMat = new THREE.MeshStandardMaterial({ map:strobeTexture(), metalness:0.9, roughness:0.32 });
+  const platterTopMat = new THREE.MeshStandardMaterial({ color:0xcfcfcf, metalness:1, roughness:0.3, roughnessMap:brushedTexture() });
+
+  // grooves are concentric: light smears along them. anisotropyMap holds the groove direction per pixel.
+  function grooveDirTexture(){
+    const S=512, cv=document.createElement('canvas'); cv.width=cv.height=S; const ctx=cv.getContext('2d'), img=ctx.createImageData(S,S), d=img.data;
+    for(let y=0;y<S;y++) for(let x=0;x<S;x++){
+      const dx=x-S/2+0.5, dy=y-S/2+0.5, a=Math.atan2(dy,dx)+Math.PI/2, rr=Math.hypot(dx,dy)/(S/2);
+      const inG = rr>GROOVE.inner*0.985 && rr<GROOVE.outer;          // only the grooved area is anisotropic
+      const i=(y*S+x)*4; d[i]=(Math.cos(a)*0.5+0.5)*255; d[i+1]=(Math.sin(a)*0.5+0.5)*255; d[i+2]=inG?255:40; d[i+3]=255;
+    }
+    ctx.putImageData(img,0,0);
+    const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.NoColorSpace; return t;
+  }
+  const grooveDir = grooveDirTexture();
+  const vinylTop = new THREE.MeshPhysicalMaterial({ color:0xffffff, roughness:0.34, metalness:0.0, clearcoat:0.85, clearcoatRoughness:0.07,
+    anisotropy:0.9, anisotropyMap:grooveDir, envMapIntensity:0.55 });
+  const vinylBottom = vinylTop.clone();
+  const vinylEdge = new THREE.MeshPhysicalMaterial({ color:0x090909, roughness:0.3, clearcoat:1, clearcoatRoughness:0.15 });
+  let bandsKey='?';
+  function updateGrooves(){
+    const bands=V.bands(), k=bands.map(b=>b.toFixed(4)).join(',');
+    if(k===bandsKey) return; bandsKey=k;
+    const map=new THREE.CanvasTexture(grooveCanvas(bands)); map.colorSpace=THREE.SRGBColorSpace; map.anisotropy=ANISO;
+    const rough=new THREE.CanvasTexture(grooveRoughCanvas(bands)); rough.anisotropy=ANISO;
+    [vinylTop,vinylBottom].forEach(m=>{ if(m.map) m.map.dispose(); if(m.roughnessMap) m.roughnessMap.dispose(); m.map=map; m.roughnessMap=rough; m.needsUpdate=true; });
+  }
+
+  // ---------- the turntable ----------
+  const R=1;                                  // record radius = 1 unit
+  const deck = new THREE.Group(); scene.add(deck);
+  const PLINTH = { x0:-1.26, x1:1.66, z0:-1.28, z1:1.30, h:0.17 };
+  const plinth = new THREE.Mesh(new RoundedBoxGeometry(PLINTH.x1-PLINTH.x0, PLINTH.h, PLINTH.z1-PLINTH.z0, 5, 0.045), woodMat);
+  plinth.position.set((PLINTH.x0+PLINTH.x1)/2, -PLINTH.h/2, (PLINTH.z0+PLINTH.z1)/2);
+  plinth.castShadow=true; plinth.receiveShadow=true; deck.add(plinth);
+  [[PLINTH.x0+0.2,PLINTH.z0+0.2],[PLINTH.x1-0.2,PLINTH.z0+0.2],[PLINTH.x0+0.2,PLINTH.z1-0.2],[PLINTH.x1-0.2,PLINTH.z1-0.2]].forEach(([x,z])=>{
+    const f=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.12,0.07,40), satin); f.position.set(x,-PLINTH.h-0.035,z); f.castShadow=true; deck.add(f);
+  });
+  // a soft shadow pad under the whole thing
+  const shadowCatcher=new THREE.Mesh(new THREE.PlaneGeometry(8,8), new THREE.ShadowMaterial({opacity:0.35}));
+  shadowCatcher.rotation.x=-Math.PI/2; shadowCatcher.position.y=-PLINTH.h-0.07; shadowCatcher.receiveShadow=true; deck.add(shadowCatcher);
+
+  // platter: bearing, strobe rim, rubber mat
+  const PL_Y=0.02, PL_H=0.11, PL_R=1.06;
+  const platter = new THREE.Group(); deck.add(platter);
+  const plBody = new THREE.Mesh(new THREE.CylinderGeometry(PL_R, PL_R, PL_H, 160, 1), [strobeMat, platterTopMat, satin]);
+  plBody.position.y = PL_Y + PL_H/2; plBody.castShadow=true; plBody.receiveShadow=true; platter.add(plBody);
+  const MAT_Y = PL_Y+PL_H;
+  const mat = new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.0,0.012,140), rubber);
+  mat.position.y = MAT_Y+0.006; mat.receiveShadow=true; platter.add(mat);
+  const REC_Y = MAT_Y+0.012;                  // record sits on the mat
+
+  // record: flip group (lift + turn over) → spin group (33⅓ rpm) → vinyl + two labels
+  const REC_H=0.014;
+  const flipG = new THREE.Group(); flipG.position.y = REC_Y + REC_H/2; deck.add(flipG);
+  const spinG = new THREE.Group(); flipG.add(spinG);
+  const vinyl = new THREE.Mesh(new THREE.CylinderGeometry(0.985,0.985,REC_H,200,1), [vinylEdge, vinylTop, vinylBottom]);
+  vinyl.castShadow=true; vinyl.receiveShadow=true; spinG.add(vinyl);
+  const labelMatTop = new THREE.MeshStandardMaterial({ roughness:0.7, color:0xffffff });
+  const labelMatBot = new THREE.MeshStandardMaterial({ roughness:0.7, color:0xffffff });
+  const LABEL_R = 0.34;
+  const labelTop = new THREE.Mesh(new THREE.CircleGeometry(LABEL_R,96), labelMatTop);
+  labelTop.rotation.x=-Math.PI/2; labelTop.position.y=REC_H/2+0.0008; labelTop.receiveShadow=true; spinG.add(labelTop);
+  const labelBot = new THREE.Mesh(new THREE.CircleGeometry(LABEL_R,96), labelMatBot);
+  labelBot.rotation.x=Math.PI/2; labelBot.position.y=-REC_H/2-0.0008; spinG.add(labelBot);
+  // spindle
+  const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.022,0.09,32), chrome);
+  spindle.position.y = REC_Y+0.045; spindle.castShadow=true; deck.add(spindle);
+  const spindleTip = new THREE.Mesh(new THREE.SphereGeometry(0.02,24,12,0,Math.PI*2,0,Math.PI/2), chrome);
+  spindleTip.position.y = REC_Y+0.09; deck.add(spindleTip);
+
+  // ---------- tonearm ----------
+  const PIV = new THREE.Vector3(1.05*R, 0, -0.95*R);
+  const ARM_Y = REC_Y + REC_H + 0.056;          // height of the arm tube
+  // base housing on the plinth
+  const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.07,64), blackGloss);
+  housing.position.set(PIV.x, 0.035, PIV.z); housing.castShadow=true; housing.receiveShadow=true; deck.add(housing);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.06,ARM_Y-0.05,48), chrome);
+  pillar.position.set(PIV.x, 0.05+(ARM_Y-0.05)/2, PIV.z); pillar.castShadow=true; deck.add(pillar);
+  // the arm itself (rotates about the pillar, lifts with the cue)
+  const arm = new THREE.Group(); arm.position.set(PIV.x, ARM_Y, PIV.z); deck.add(arm);
+  const gimbal = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.07,48), satin); gimbal.castShadow=true; arm.add(gimbal);
+  const gimbalCap = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.02,40), blackGloss); gimbalCap.position.y=0.045; arm.add(gimbalCap);
+  const TUBE_L = 1.22;
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,TUBE_L+0.28,32), chrome);
+  tube.rotation.x = Math.PI/2; tube.position.z = (TUBE_L-0.28)/2; tube.castShadow=true; arm.add(tube);
+  const cw = new THREE.Mesh(new THREE.CylinderGeometry(0.068,0.068,0.15,48), blackMatte);
+  cw.rotation.x=Math.PI/2; cw.position.z=-0.3; cw.castShadow=true; arm.add(cw);
+  const cwRing = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.02,48), chrome); cwRing.rotation.x=Math.PI/2; cwRing.position.z=-0.215; arm.add(cwRing);
+  // headshell turned toward the record, with a cartridge and a finger lift
+  const BETA = 22*Math.PI/180;
+  const head = new THREE.Group(); head.position.z = TUBE_L; head.rotation.y = -BETA; arm.add(head);
+  const shell = new THREE.Mesh(new RoundedBoxGeometry(0.085,0.012,0.2,3,0.005), satin); shell.position.z=0.09; shell.castShadow=true; head.add(shell);
+  const lift = new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.09,12), chrome); lift.rotation.z=Math.PI/2; lift.position.set(0.075,0.008,0.12); head.add(lift);
+  const cart = new THREE.Mesh(new RoundedBoxGeometry(0.06,0.042,0.085,3,0.006), blackGloss); cart.position.set(0,-0.027,0.1); cart.castShadow=true; head.add(cart);
+  const cartLogo = new THREE.Mesh(new THREE.BoxGeometry(0.061,0.012,0.04), new THREE.MeshStandardMaterial({color:0xb08a2e,metalness:0.6,roughness:0.4})); cartLogo.position.set(0,-0.022,0.1); head.add(cartLogo);
+  const stylusMark = new THREE.Object3D(); stylusMark.position.set(0,-0.05,0.13); head.add(stylusMark);
+  const stylus = new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.0025,0.014,8), chrome); stylus.position.set(0,-0.048,0.13); head.add(stylus);
+  // invisible, finger-sized grab areas along the arm and around the headshell (the real parts are thin)
+  const grabMat = new THREE.MeshBasicMaterial({visible:false});
+  const tubeGrab = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,TUBE_L+0.4,8), grabMat);
+  tubeGrab.rotation.x=Math.PI/2; tubeGrab.position.z=(TUBE_L-0.4)/2+0.1; arm.add(tubeGrab);
+  const headGrab = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.16,0.36), grabMat); headGrab.position.set(0.02,-0.01,0.1); head.add(headGrab);
+  const armMeshes=[tube,cw,shell,cart,lift,cwRing,cartLogo,tubeGrab,headGrab];
+
+  // where the stylus is for a given swing angle (exactly, from the model), and back
+  const tmpV=new THREE.Vector3();
+  function stylusAt(phi){                            // phi: arm direction in the turntable plane (radians)
+    arm.rotation.y = Math.PI/2 - phi; arm.updateMatrixWorld(true);
+    stylusMark.getWorldPosition(tmpV); deck.worldToLocal(tmpV);
+    return Math.hypot(tmpV.x, tmpV.z);
+  }
+  const phiTable=[];
+  for(let d=55; d<=200; d+=0.25){ const r=stylusAt(d*Math.PI/180); if(phiTable.length && r>phiTable[phiTable.length-1][1]) break; phiTable.push([d*Math.PI/180, r]); }
+  function phiForRatio(r){
+    if(r>=phiTable[0][1]) return phiTable[0][0];
+    for(let i=1;i<phiTable.length;i++) if(phiTable[i][1]<=r){ const [a0,r0]=phiTable[i-1],[a1,r1]=phiTable[i]; return a0+(a1-a0)*(r0-r)/((r0-r1)||1); }
+    return phiTable[phiTable.length-1][0];
+  }
+  function ratioForPhi(phi){
+    for(let i=1;i<phiTable.length;i++) if(phiTable[i][0]>=phi){ const [a0,r0]=phiTable[i-1],[a1,r1]=phiTable[i]; return r0+(r1-r0)*(phi-a0)/((a1-a0)||1); }
+    return phiTable[phiTable.length-1][1];
+  }
+  // arm rest: a post with a cradle under the tube, where the arm parks
+  const restPhi = phiForRatio(V.ratioForAngle(V.ARM_REST));
+  arm.rotation.y = Math.PI/2-restPhi; arm.updateMatrixWorld(true);
+  const restPt = new THREE.Vector3(0,0,TUBE_L*0.78).applyMatrix4(arm.matrixWorld); deck.worldToLocal(restPt);
+  const restPost = new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.02,ARM_Y-0.03,24), chrome);
+  restPost.position.set(restPt.x, (ARM_Y-0.03)/2, restPt.z); restPost.castShadow=true; deck.add(restPost);
+  const cradle = new THREE.Mesh(new THREE.TorusGeometry(0.03,0.008,10,24,Math.PI), blackMatte);
+  cradle.position.set(restPt.x, ARM_Y-0.02, restPt.z); cradle.rotation.y = Math.PI/2-restPhi+Math.PI/2; deck.add(cradle);
+
+  // ---------- controls on the deck: Start/Stop (works), 33/45, pitch, strobe lamp, nameplate ----------
+  function textTex(lines, w, h, opt={}){
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const c=cv.getContext('2d');
+    c.fillStyle=opt.bg||'#cfcfcf'; c.fillRect(0,0,w,h);
+    c.fillStyle=opt.fg||'#1a1a1a'; c.textAlign='center'; c.textBaseline='middle';
+    lines.forEach((l,i)=>{ c.font=l.font; c.fillText(l.text, w/2, h*(i+1)/(lines.length+1)); });
+    const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=ANISO; return t;
+  }
+  const btnTopMat = new THREE.MeshStandardMaterial({ map:textTex([{text:'START · STOP',font:'bold 44px sans-serif'}],512,128), metalness:0.85, roughness:0.3 });
+  const startBtn = new THREE.Mesh(new RoundedBoxGeometry(0.42,0.04,0.17,3,0.012), [satin,satin,btnTopMat,satin,satin,satin]);
+  startBtn.position.set(-0.98, 0.02, 1.12); startBtn.castShadow=true; deck.add(startBtn);
+  const spdMat = (t)=>new THREE.MeshStandardMaterial({ map:textTex([{text:t,font:'bold 60px sans-serif'}],256,128), metalness:0.85, roughness:0.32 });
+  const b33 = new THREE.Mesh(new RoundedBoxGeometry(0.16,0.03,0.11,3,0.01), [satin,satin,spdMat('33'),satin,satin,satin]); b33.position.set(-0.6,0.015,1.14); deck.add(b33);
+  const b45 = new THREE.Mesh(new RoundedBoxGeometry(0.16,0.03,0.11,3,0.01), [satin,satin,spdMat('45'),satin,satin,satin]); b45.position.set(-0.4,0.015,1.14); deck.add(b45);
+  const ledMat = new THREE.MeshStandardMaterial({ color:0xff7a2a, emissive:0xff5a10, emissiveIntensity:2.2 });
+  const led33 = new THREE.Mesh(new THREE.SphereGeometry(0.012,16,8), ledMat); led33.position.set(-0.6,0.036,1.07); deck.add(led33);
+  const ledOff = new THREE.MeshStandardMaterial({ color:0x3a1a0a, roughness:0.4 });
+  const led45 = new THREE.Mesh(new THREE.SphereGeometry(0.012,16,8), ledOff); led45.position.set(-0.4,0.036,1.07); deck.add(led45);
+  // strobe lamp lighting the platter rim
+  const lampBody = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.05,32), satin); lampBody.position.set(-1.0,0.025,0.66); deck.add(lampBody);
+  const lampGlass = new THREE.Mesh(new THREE.SphereGeometry(0.035,24,12,0,Math.PI*2,0,Math.PI/2), new THREE.MeshStandardMaterial({ color:0xff6a2a, emissive:0xff4a10, emissiveIntensity:1.6, roughness:0.2 }));
+  lampGlass.position.set(-1.0,0.05,0.66); deck.add(lampGlass);
+  const strobeLight = new THREE.PointLight(0xff5a1a, 0.6, 0.9, 2); strobeLight.position.set(-0.98,0.09,0.62); deck.add(strobeLight);
+  // pitch slider
+  const slot = new THREE.Mesh(new RoundedBoxGeometry(0.07,0.01,0.62,2,0.004), blackMatte); slot.position.set(1.42,0.004,0.62); deck.add(slot);
+  const knob = new THREE.Mesh(new RoundedBoxGeometry(0.12,0.04,0.07,3,0.01), satin); knob.position.set(1.42,0.022,0.62); knob.castShadow=true; deck.add(knob);
+  // nameplate
+  const plateMat = new THREE.MeshStandardMaterial({ map:textTex([{text:'VINYLIFY',font:'600 64px Georgia, serif'}],512,128,{bg:'#b9a27a',fg:'#2a1a0c'}), metalness:0.9, roughness:0.35 });
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.125), plateMat); plate.rotation.x=-Math.PI/2; plate.position.set(1.2,0.002,1.14); deck.add(plate);
+
+  // ---------- record label: album art + side ----------
+  let artImg=null, artUrl=null, labelKey='';
+  function loadArt(url){
+    if(url===artUrl) return; artUrl=url; artImg=null; labelKey='';
+    if(!url) return;
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>{ if(artUrl===url){ artImg=im; labelKey=''; } };
+    im.onerror=()=>{ if(artUrl===url){ artImg=null; labelKey=''; } };
+    im.src=url;
+  }
+  function labelTexture(side, lp, title){
+    const S=512, cv=document.createElement('canvas'); cv.width=cv.height=S; const c=cv.getContext('2d');
+    c.save(); c.beginPath(); c.arc(S/2,S/2,S/2,0,Math.PI*2); c.clip();
+    if(artImg){ try{ c.drawImage(artImg,0,0,S,S); }catch(e){ artImg=null; } }
+    if(!artImg){ const g=c.createRadialGradient(S/2,S/2,10,S/2,S/2,S/2); g.addColorStop(0,'#d0602e'); g.addColorStop(1,'#7a3418'); c.fillStyle=g; c.fillRect(0,0,S,S);
+      c.fillStyle='#f4e8d6'; c.textAlign='center'; c.font='600 40px Georgia, serif'; c.fillText((title||'Vinylify').slice(0,22), S/2, S*0.3); }
+    // printed-paper sheen ring + center hole
+    c.strokeStyle='rgba(0,0,0,.35)'; c.lineWidth=6; c.beginPath(); c.arc(S/2,S/2,S/2-3,0,Math.PI*2); c.stroke();
+    if(lp){ c.fillStyle='rgba(0,0,0,.55)'; roundRect(c,S/2-70,S*0.73-24,140,48,10); c.fill(); c.fillStyle='#f4e8d6'; c.font='800 32px sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('SIDE '+side,S/2,S*0.73); }
+    c.restore();
+    c.fillStyle='#111'; c.beginPath(); c.arc(S/2,S/2,10,0,Math.PI*2); c.fill();
+    const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=ANISO; return t;
+    function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+  }
+  function updateLabels(){
+    const lp=V.lp(), a=V.sideLetter(), b=V.otherLetter(), title=(document.getElementById('title')||{}).textContent;
+    const k=[artUrl, !!artImg, lp, a, b, title].join('|');
+    if(k===labelKey) return; labelKey=k;
+    [[labelMatTop,a],[labelMatBot,b]].forEach(([m,side])=>{ if(m.map) m.map.dispose(); m.map=labelTexture(side,lp,title); m.needsUpdate=true; });
+  }
+
+  // ---------- camera from the ✋ view ----------
+  const target = new THREE.Vector3(0.2, 0.05, 0.02);
+  // frame the whole turntable inside the space the page gives it (and inside the screen on narrow phones)
+  const fitPts=[]; for(const x of [PLINTH.x0,PLINTH.x1]) for(const z of [PLINTH.z0,PLINTH.z1]) for(const y of [-0.06, 0.42]) fitPts.push(new THREE.Vector3(x,y,z));
+  let camKey="";
+  function placeCamera(){
+    const v=V.view(); const w=canvas.clientWidth||1, h=canvas.clientHeight||1;
+    const cr=canvas.getBoundingClientRect(), dw=(canvas.parentElement||canvas).getBoundingClientRect();
+    const key=[v.tilt,v.spin,w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
+    if(key===camKey) return; camKey=key;
+    camera.aspect=w/h;
+    const polar = THREE.MathUtils.degToRad(Math.max(6, Math.min(80, 14 + v.tilt*1.05)));
+    const az = THREE.MathUtils.degToRad(-v.spin);
+    // the room we may fill: around the deck area, never off the screen
+    const M=8;
+    const reg={ l:Math.max(M, cr.left, dw.left-dw.width*0.45), r:Math.min(innerWidth-M, cr.right, dw.right+dw.width*0.45),
+                t:Math.max(M, cr.top, dw.top-dw.height*0.25), b:Math.min(innerHeight-M, cr.bottom, dw.bottom+dw.height*0.25) };
+    let dist=6;
+    const put=()=>{ camera.position.set(target.x + dist*Math.sin(polar)*Math.sin(az), target.y + dist*Math.cos(polar), target.z + dist*Math.sin(polar)*Math.cos(az));
+      camera.lookAt(target); camera.updateMatrixWorld(); camera.clearViewOffset(); camera.updateProjectionMatrix(); };
+    let box=null;
+    for(let it=0; it<4; it++){
+      put();
+      let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+      for(const p of fitPts){ const q=p.clone().project(camera); const px=cr.left+(q.x+1)/2*w, py=cr.top+(1-q.y)/2*h;
+        x0=Math.min(x0,px); x1=Math.max(x1,px); y0=Math.min(y0,py); y1=Math.max(y1,py); }
+      box={x0,x1,y0,y1};
+      const k=Math.max((x1-x0)/Math.max(40,reg.r-reg.l), (y1-y0)/Math.max(40,reg.b-reg.t));
+      if(Math.abs(k-1)<0.01) break;
+      dist*=k;
+    }
+    // slide the picture so the turntable sits in the middle of that room
+    const dx=(box.x0+box.x1)/2-(reg.l+reg.r)/2, dy=(box.y0+box.y1)/2-(reg.t+reg.b)/2;
+    camera.setViewOffset(w,h,dx,dy,w,h); camera.updateProjectionMatrix();
+    // park the ✋ turn handle just off the back-left corner of the plinth, clear of the controls
+    const oh=document.getElementById('orbitHandle');
+    if(oh){ const q=new THREE.Vector3(PLINTH.x0, PLINTH.h, PLINTH.z0).project(camera);
+      const px=cr.left+(q.x+1)/2*w, py=cr.top+(1-q.y)/2*h;
+      const gx=Math.max(M, Math.min(innerWidth-50, px-46)), gy=Math.max(M, py-50);
+      oh.style.setProperty('--gx',(gx-dw.left)+'px'); oh.style.setProperty('--gy',(gy-dw.top)+'px'); }
+  }
+  function resize(){
+    const w=canvas.clientWidth, h=canvas.clientHeight;
+    if(!w||!h) return;
+    const dpr=renderer.getPixelRatio();
+    if(canvas.width!==Math.round(w*dpr) || canvas.height!==Math.round(h*dpr)) renderer.setSize(w,h,false);
+  }
+
+  // the sleeve animation needs to know where the record is on screen
+  V.setRecordRectProvider(()=>{
+    const r=canvas.getBoundingClientRect(); const pts=[];
+    for(let i=0;i<16;i++){ const a=i/16*Math.PI*2; const p=new THREE.Vector3(Math.cos(a)*0.985, REC_Y, Math.sin(a)*0.985).project(camera); pts.push([(p.x+1)/2*r.width+r.left, (1-p.y)/2*r.height+r.top]); }
+    const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
+    const l=Math.min(...xs), t=Math.min(...ys); return { left:l, top:t, width:Math.max(...xs)-l, height:Math.max(...ys)-t };
+  });
+
+  // ---------- pointer: grab the tonearm, press Start/Stop / 33 / 45 ----------
+  const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+  function hit(e, objs){
+    const r=canvas.getBoundingClientRect();
+    if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return null;
+    ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+    ray.setFromCamera(ndc,camera);
+    const h=ray.intersectObjects(objs,false); return h.length?h[0]:null;
+  }
+  function planePoint(e){                             // where the pointer is on the arm's height plane
+    const r=canvas.getBoundingClientRect();
+    ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+    ray.setFromCamera(ndc,camera);
+    const pl=new THREE.Plane(new THREE.Vector3(0,1,0), -ARM_Y); const out=new THREE.Vector3();
+    return ray.ray.intersectPlane(pl,out) ? out : null;
+  }
+  let armDrag=null, pressed=null;
+  document.addEventListener('pointerdown',e=>{
+    if(!active()) return;
+    if(document.getElementById('app').classList.contains('fullpage')===false && window.innerWidth>=900 && !e.target.closest('.deck-wrap')) return;
+    const h=hit(e,[...armMeshes,startBtn,b33,b45]);
+    if(!h) return;
+    e.stopPropagation(); e.preventDefault();
+    if(h.object===startBtn||h.object===b33||h.object===b45){ pressed=h.object; pressed.position.y-=0.008; return; }
+    const p=planePoint(e); if(!p) return;
+    if(!V.S.armApi || !V.S.armApi.begin()) return;
+    armDrag={ a0:Math.atan2(p.z-PIV.z, p.x-PIV.x), phi0:currentPhi, x0:e.clientX, y0:e.clientY, moved:false };
+  },true);
+  document.addEventListener('pointermove',e=>{
+    if(!armDrag) return;
+    if(!armDrag.moved && Math.hypot(e.clientX-armDrag.x0,e.clientY-armDrag.y0)<6) return;
+    armDrag.moved=true;
+    const p=planePoint(e); if(!p) return;
+    let da=Math.atan2(p.z-PIV.z, p.x-PIV.x)-armDrag.a0;
+    if(da>Math.PI) da-=2*Math.PI; if(da<-Math.PI) da+=2*Math.PI;
+    const phi=Math.max(phiTable[0][0], Math.min(phiTable[phiTable.length-1][0], armDrag.phi0+da));
+    V.S.armApi.move(V.angleForRatio(ratioForPhi(phi)), e.clientX, e.clientY);
+  },true);
+  document.addEventListener('pointerup',e=>{
+    if(pressed){ const p=pressed; pressed=null; p.position.y+=0.008;
+      if(p===startBtn) V.togglePlay();
+      else if(p===b45) V.toast('This one plays at 33⅓ — Spotify sets the real speed');
+      e.stopPropagation(); return; }
+    if(!armDrag) return;
+    const moved=armDrag.moved; armDrag=null; e.stopPropagation();
+    V.S.armApi.end();
+  },true);
+
+  // ---------- render loop ----------
+  const active=()=>document.getElementById('app').classList.contains('real');
+  let currentPhi=restPhi, liftY=0, frames=0, slowFrames=0, lastT=performance.now(), shadowsOn=true;
+  function frame(now){
+    requestAnimationFrame(frame);
+    if(!active() || document.hidden) return;
+    const dt=now-lastT; lastT=now;
+    // drop quality on slow screens (Echo, older phones)
+    frames++; if(dt>45) slowFrames++;
+    if(frames===90){ if(slowFrames>40){ if(renderer.getPixelRatio()>1){ renderer.setPixelRatio(1); } else if(shadowsOn){ shadowsOn=false; renderer.shadowMap.enabled=false; scene.traverse(o=>{ if(o.material) o.material.needsUpdate=true; }); } } frames=0; slowFrames=0; }
+    resize(); placeCamera();
+    const S=V.S;
+    // record + platter spin together (clockwise from above)
+    const ang=THREE.MathUtils.degToRad(V.angle());
+    spinG.rotation.y=-ang; plBody.rotation.y=-ang;
+    flipG.visible=!V.empty();
+    // flip: lift off the spindle, turn over in the air, set back down
+    if(S.flipAnim){
+      const t=Math.min(1,(now-S.flipAnim.start)/1700);
+      const up = t<.25 ? t/.25 : t>.75 ? (1-t)/.25 : 1;
+      const tt=Math.max(0,Math.min(1,(t-.2)/.6));
+      flipG.position.y = REC_Y+REC_H/2 + up*0.55;
+      flipG.rotation.x = Math.PI*tt;
+    } else { flipG.position.y = REC_Y+REC_H/2; flipG.rotation.x = 0; }
+    // labels and grooves follow the music
+    loadArt(S.big||S.art||null); updateLabels(); updateGrooves();
+    // tonearm: follow Vinylify's arm (swing) and cue height (lift)
+    const ratio=V.ratioForAngle(V.armDeg());
+    currentPhi = phiForRatio(ratio);
+    arm.rotation.y = Math.PI/2 - currentPhi;
+    const z=V.armZ();                                   // 30 = needle on the vinyl, 40 = lifted
+    const targetLift = Math.max(0,(z-30)/10)*0.06;
+    liftY += (targetLift-liftY)*0.25;
+    arm.position.y = ARM_Y + liftY;
+    gimbal.rotation.y = 0;
+    renderer.render(scene,camera);
+  }
+  requestAnimationFrame(frame);
+  document.getElementById('app').classList.add('glready');   // until now the classic deck stood in
+  window.__gl={scene,camera,renderer,phiTable,startBtn,cart,arm,flipG,head, hitTest:(x,y)=>{ const h=hit({clientX:x,clientY:y},[...armMeshes,startBtn,b33,b45]); return h?armMeshes.indexOf(h.object):null; }};
+})();
+
+</script>
+<script>
+  // if the 3D engine can't load (offline, very old browser), fall back to the classic turntable
+  setTimeout(()=>{ if(!window.__gl && window.VINYL) window.VINYL.glFailed(); }, 12000);
 </script>
 </body>
 </html>
