@@ -496,7 +496,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v31</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v32</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -646,7 +646,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "31";
+  const APP_VERSION = "32";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -684,7 +684,7 @@
     history.replaceState(null,"",REDIRECT);
     if(q.get("state")==="tv"){                      // came back from approving a TV: hand the TV its sign-in, keep ours
       try{ await tvFinish(code); setTimeout(()=>toast("TV connected — it'll show the turntable in a few seconds"),600); }
-      catch(e){ setTimeout(()=>toast(e.message),600); }
+      catch(e){ sessionStorage.setItem("vinyl.tvErr", e.message); }   // shown in Settings once the page is up
       return false;
     }
     await tokenRequest({grant_type:"authorization_code",code,redirect_uri:REDIRECT,client_id:store.get("cid"),code_verifier:store.get("verifier")||""});
@@ -725,10 +725,25 @@
     const j = await r.json().catch(()=>({}));
     if(!r.ok || !j.refresh_token) throw new Error("Spotify didn't approve the TV ("+(j.error_description||j.error||r.status)+").");
     const sealed = await tvSeal(tv.code, {r:j.refresh_token, a:j.access_token, x:Math.floor(Date.now()/1000)+(j.expires_in||3600)-60, c:store.get("cid")});
-    const put = await fetch("https://ntfy.sh/"+sealed.topic, {method:"POST", body:sealed.message});   // a plain post: no extra headers
-    if(!put.ok) throw new Error("Couldn't reach the TV mailbox (ntfy.sh said "+put.status+"). Try again in a minute.");
+    // hand it to the mailbox; busy or hiccuping servers get a few more tries
+    let last="";
+    for(let attempt=1; attempt<=4; attempt++){
+      try{
+        const put = await fetch("https://ntfy.sh/"+sealed.topic, {method:"POST", body:sealed.message});   // a plain post: no extra headers
+        if(put.ok) return;
+        const txt = await put.text().catch(()=> "");
+        let why=""; try{ why=JSON.parse(txt).error||""; }catch(e){ why=txt.slice(0,120); }
+        last = "ntfy.sh answered "+put.status+(why?" — "+why:"");
+        if(put.status>=400 && put.status<500 && put.status!==429) break;      // a firm no: don't keep knocking
+      }catch(e){ last = "couldn't connect to ntfy.sh ("+e.message+")"; }
+      await new Promise(r=>setTimeout(r, 1500*attempt));
+    }
+    throw new Error("Couldn't reach the TV mailbox: "+last+". Your TV approval worked — just type the TV's code and tap Connect again.");
   }
-  $("tvForm").addEventListener("submit",e=>{ e.preventDefault(); tvStart($("tvCode").value).catch(err=>{ $("tvMsg").textContent=err.message; }); });
+  $("tvForm").addEventListener("submit",e=>{ e.preventDefault(); $("tvMsg").textContent=""; tvStart($("tvCode").value).catch(err=>{ $("tvMsg").textContent=err.message; }); });
+  setTimeout(()=>{ const m=sessionStorage.getItem("vinyl.tvErr"); if(!m) return; sessionStorage.removeItem("vinyl.tvErr");
+    const box=$("tvMsg"); box.textContent=m; box.style.color="#ffb08a";
+    try{ $("setBtn").click(); }catch(e){} setTimeout(()=>box.scrollIntoView({block:"center"}),300); }, 1500);
 
   let refreshing=null;
   async function getToken(force=false){
