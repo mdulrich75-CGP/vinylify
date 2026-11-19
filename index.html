@@ -496,7 +496,7 @@
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
-      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v30</button></div>
+      <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v31</button></div>
       <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
@@ -620,6 +620,16 @@
     </div>
     <div class="t2" id="styleNote" style="margin-top:8px">Realistic: real wood, metal and vinyl with lighting and shadows. Classic 3D and Flat are lighter for older screens.</div>
   </div>
+  <div class="opt" style="cursor:default;display:block">
+    <div class="t1">Connect a TV (Roku)</div>
+    <div class="t2">Open Vinylify on your Roku and type the code it shows. Spotify will ask you to approve the TV.</div>
+    <form id="tvForm" style="display:flex;gap:8px;margin-top:8px">
+      <input id="tvCode" placeholder="ABCD-EFGH" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false"
+        style="flex:1;min-width:0;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:inherit;font:600 16px/1 ui-monospace,Menlo,monospace;letter-spacing:2px;text-transform:uppercase">
+      <button type="submit" style="padding:8px 14px;border-radius:9px;background:var(--accent);color:#1b120a;font-weight:700">Connect</button>
+    </form>
+    <div class="t2" id="tvMsg" style="margin-top:6px"></div>
+  </div>
   <label class="opt"><input type="checkbox" id="optSfx"><div><div class="t1">Record sounds</div><div class="t2">Needle drop, crackle and run-out groove. Muted automatically while music plays on the phone you're holding.</div></div></label>
 </div>
 <div id="toast"></div>
@@ -636,7 +646,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "30";
+  const APP_VERSION = "31";
   const APP_DATE = "Nov 17, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -672,10 +682,54 @@
     const code = q.get("code");
     if(!code) return false;
     history.replaceState(null,"",REDIRECT);
+    if(q.get("state")==="tv"){                      // came back from approving a TV: hand the TV its sign-in, keep ours
+      try{ await tvFinish(code); setTimeout(()=>toast("TV connected — it'll show the turntable in a few seconds"),600); }
+      catch(e){ setTimeout(()=>toast(e.message),600); }
+      return false;
+    }
     await tokenRequest({grant_type:"authorization_code",code,redirect_uri:REDIRECT,client_id:store.get("cid"),code_verifier:store.get("verifier")||""});
     store.set("verifier",null);
     return true;
   }
+  // ================= Connect a TV (Roku) =================
+  // The TV shows a code. The phone signs the TV in to Spotify with its own separate login (so the phone's and the
+  // TV's sessions never knock each other out), encrypts it with a key made from that code, and drops it in a
+  // public mailbox (ntfy.sh) named after the code. Only the TV showing that code can find and read it.
+  const TV_ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const tvNorm = s => (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const hex = buf => Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,"0")).join("");
+  const sha = s => crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  async function tvSeal(code, payload){
+    const topic = "vinylify-" + hex(await sha("vinylify-topic:"+code)).slice(0,24);
+    const key = await crypto.subtle.importKey("raw", await sha("vinylify-key:"+code), {name:"AES-CBC"}, false, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const ct = await crypto.subtle.encrypt({name:"AES-CBC", iv}, key, new TextEncoder().encode(JSON.stringify(payload)));
+    const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+    return {topic, message: b64(iv)+"."+b64(ct)};
+  }
+  async function tvStart(raw){
+    const code=tvNorm(raw);
+    if(code.length!==8 || [...code].some(c=>!TV_ALPHA.includes(c))){ $("tvMsg").textContent="That code should be 8 letters and numbers, like ABCD-EFGH."; return; }
+    const verifier = randomString(64);
+    sessionStorage.setItem("vinyl.tv", JSON.stringify({code, verifier}));
+    const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+    const p = new URLSearchParams({response_type:"code",client_id:store.get("cid"),scope:"user-read-playback-state user-modify-playback-state user-read-currently-playing",
+      code_challenge_method:"S256",code_challenge:challenge,redirect_uri:REDIRECT,show_dialog:"true",state:"tv"});
+    location.href = "https://accounts.spotify.com/authorize?" + p;
+  }
+  async function tvFinish(code){
+    const tv=JSON.parse(sessionStorage.getItem("vinyl.tv")||"null"); sessionStorage.removeItem("vinyl.tv");
+    if(!tv) throw new Error("The TV code was lost on the way back from Spotify. Please type it again in Settings.");
+    const r = await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:new URLSearchParams({grant_type:"authorization_code",code,redirect_uri:REDIRECT,client_id:store.get("cid"),code_verifier:tv.verifier})});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok || !j.refresh_token) throw new Error("Spotify didn't approve the TV ("+(j.error_description||j.error||r.status)+").");
+    const sealed = await tvSeal(tv.code, {r:j.refresh_token, a:j.access_token, x:Math.floor(Date.now()/1000)+(j.expires_in||3600)-60, c:store.get("cid")});
+    const put = await fetch("https://ntfy.sh/"+sealed.topic, {method:"POST", body:sealed.message});   // a plain post: no extra headers
+    if(!put.ok) throw new Error("Couldn't reach the TV mailbox (ntfy.sh said "+put.status+"). Try again in a minute.");
+  }
+  $("tvForm").addEventListener("submit",e=>{ e.preventDefault(); tvStart($("tvCode").value).catch(err=>{ $("tvMsg").textContent=err.message; }); });
+
   let refreshing=null;
   async function getToken(force=false){
     const t=store.get("access"), exp=+store.get("expires")||0;
