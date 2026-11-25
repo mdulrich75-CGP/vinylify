@@ -114,6 +114,11 @@
   .meta{text-align:center;max-width:min(92vw,520px);min-height:62px}
   .title{font-family:"DM Serif Display",serif;font-size:clamp(22px,5.4vw,30px);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .artist{color:var(--muted);margin-top:4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sidebadge{display:none;margin:8px auto 0;width:max-content;text-transform:none!important;max-width:100%;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);border:1px solid rgba(233,162,75,.45);border-radius:20px;padding:3px 12px}
+  .sidebadge.on{display:block}
+  .sidebadge b{color:#1b130c;background:var(--accent);border-radius:20px;padding:0 7px;margin-right:6px;letter-spacing:.06em}
+  .mside{display:none;flex:none;font-size:11px;font-weight:800;color:#1b130c;background:var(--accent);border-radius:10px;padding:1px 7px;margin-right:6px;letter-spacing:.04em}
+  .mside.on{display:inline-block}
   .progress{width:min(88vw,480px);display:grid;grid-template-columns:42px 1fr 42px;align-items:center;gap:10px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
   .progress span:last-child{text-align:right}
   input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer}
@@ -549,7 +554,7 @@
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
       <div class="brand">Vinylify<span>.</span><button class="ver" id="verTag" title="Version">v33</button></div>
-      <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
+      <div class="mini" id="mini"><img id="miniArt" alt=""><span class="mside" id="miniSide"></span><span class="mt" id="miniT" title="Bring the turntable forward">Nothing playing</span><button class="mp" id="miniPlay" aria-label="Play/Pause"><svg viewBox="0 0 24 24" id="miniIcon"><path d="M8 5v14l11-7z"/></svg></button><span class="mv" id="miniVolWrap"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="miniVol" min="0" max="100" value="50" aria-label="Volume"></span></div>
     </div>
     <div class="hdr-right">
       <button class="icon-btn" id="setBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
@@ -593,6 +598,7 @@
       <div class="meta">
         <div class="title" id="title">Nothing playing</div>
         <div class="artist" id="artist">Pick a device and press play</div>
+        <div class="sidebadge" id="sideBadge"></div>
       </div>
 
       <div class="progress">
@@ -711,7 +717,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "37";
+  const APP_VERSION = "38";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -951,6 +957,7 @@
     document.title = item.name+" · "+by;
     S.albumName=album; S.byName=by; S.albumUri=item.album?item.album.uri:null; S.albumObj=item.album||null;
     $("miniT").textContent=item.name+" — "+by; if(imgs.length) $("miniArt").src=(imgs[imgs.length-1]||imgs[0]).url;
+    if(window.__sleeve) window.__sleeve.mark();
   }
   function setArt(url,big){
     const L=$("label"), ph=$("labelPh"), bd=$("backdrop");
@@ -1026,6 +1033,38 @@
       drawBands();
     }catch(e){}
   }
+  // which side is on, and where on it we are (null when real record mode is off)
+  // how many songs (and minutes) until the record is done and the next queued record goes on
+  function untilNext(){
+    const sd=S.side; if(!sd || sd.uri!==S.contextUri) return null;
+    const i=sd.index[S.trackUri]; if(i==null) return null;
+    let end=sd.tracks.length-1;
+    if(lpOn()){ const side=platterSide(); if(!(store.get("autoflip")==="1" && side<sd.sides.length-1)) end=sd.sides[side].to; }
+    let ms=Math.max(0,(sd.tracks[i].dur||0)-currentProgress());
+    for(let k=i+1;k<=end;k++) ms+=sd.tracks[k].dur||0;
+    return {songs:end-i, ms};
+  }
+  window.__untilNext=()=>untilNext();
+  function nextNote(){
+    let n=0; try{ n=JSON.parse(store.get("recq")||"[]").length; }catch(e){}
+    if(!n) return "";
+    const u=untilNext(); if(!u) return "";
+    return u.songs===0 ? " · next record after this song" : ` · next record in ${u.songs} song${u.songs===1?"":"s"}`;
+  }
+  function sideInfo(){
+    if(!lpOn()){                                                    // no sides: just where we are on the album
+      const sd=S.side, i=sd && sd.uri===S.contextUri ? sd.index[S.trackUri] : null;
+      if(i==null) return null;
+      return {letter:null, side:0, text:`song ${i+1} of ${sd.tracks.length}`+nextNote()};
+    }
+    const side=S.tagOverride!=null?S.tagOverride:platterSide(), sp=S.side.sides[side], letter="AB"[side];
+    if(S.runout) return {letter, side, text:"finished — flip it over"};
+    if(S.flipping||S.flipAnim) return {letter, side, text:"flipping…"};
+    const i=S.side.index[S.trackUri];
+    if(i==null || i<sp.from || i>sp.to) return {letter, side, text:""};
+    return {letter, side, text:`song ${i-sp.from+1} of ${sp.to-sp.from+1}`+nextNote()};
+  }
+  window.__sideInfo=()=>sideInfo();
   // ---- real record mode helpers ----
   const lpPref=()=>store.get("lp")==="1";
   const lpOn=()=>lpPref() && S.side && S.side.uri===S.contextUri && S.side.sides.length===2;
@@ -1112,6 +1151,9 @@
     tag.classList.toggle("on",lp);
     const fb=$("flipNowBtn"); if(fb.classList.contains("on")!==lp) fb.classList.toggle("on",lp);
     if(lp){ const txt="SIDE "+(S.tagOverride!=null?"AB"[S.tagOverride]:"AB"[platterSide()]); if(tag.textContent!==txt) tag.textContent=txt; }
+    // v38: a still, readable "Side B · song 4 of 6" under the title, and "B" in the top bar
+    { const si=sideInfo(), html=si?(si.letter?`<b>Side ${si.letter}</b>`:"")+si.text:"", sb=$("sideBadge"), ms=$("miniSide");
+      if(sb._h!==html){ sb._h=html; sb.innerHTML=html; sb.classList.toggle("on",!!si); ms.textContent=si&&si.letter?si.letter:""; ms.classList.toggle("on",!!(si&&si.letter)); ms.title=si&&si.letter?"Side "+si.letter+" · "+si.text:""; } }
     if(S.side && bandsKey!==S.side.uri+"|"+span().from) drawBands();
     // the last song on this side is ending: stop, and let the needle ride the run-out groove
     if(lp && S.playing && !S.busy && !S.dragArm && !S.runout){
@@ -2024,7 +2066,8 @@
     const sd=S.side;
     const onLastNow = !!(sd && sd.uri===S.contextUri && sd.index[S.trackUri]===sd.tracks.length-1);
     const was=prev.last; S.onLast = onLastNow ? {uri:S.contextUri, track:S.trackUri} : null;
-    if(!was || S.busy || S.flipping || S.runout || S.pendingPlay || S.repeat!=="off") return;
+    // repeat-one never ends; repeat-all only "ends" when there's a record waiting to go on next
+    if(!was || S.busy || S.flipping || S.runout || S.pendingPlay || S.repeat==="track" || (S.repeat==="context" && !recQ.list().length)) return;
     if(performance.now() < (S.lockUntil||0)) return;                // our own command is still settling
     const movedOn = S.trackUri!==was.track && prev.left < 20000;      // the last song was ending and something else came on
     const stoppedAtEnd = S.trackUri===was.track && !st.is_playing && (S.progress<1500 || S.duration-S.progress<4000) && prev.left<20000;
@@ -2056,18 +2099,28 @@
     playItem(it);                                                    // the old record goes back in its sleeve, the new one goes on
     return true;
   }
+  function updateRqWhen(){
+    const el=$("rqWhen"); if(!el) return;
+    const u=untilNext();
+    const what = lpOn() ? (store.get("autoflip")==="1" && platterSide()===0 ? "this record (both sides)" : "this side") : "this album";
+    el.textContent = !u ? "The first one goes on when the record playing now is done."
+      : u.songs===0 ? `The first one goes on after this song (about ${Math.max(1,Math.round(u.ms/60000))} min).`
+      : `The first one goes on after ${u.songs} more song${u.songs===1?"":"s"} on ${what} — about ${Math.max(1,Math.round(u.ms/60000))} min.`;
+  }
+  setInterval(updateRqWhen, 5000);
   function renderRecQueue(){
     const pane=$("pane-queue"); if(!pane) return;
     let box=pane.querySelector("#recQ"); const l=recQ.list();
     if(!box){ box=document.createElement("div"); box.id="recQ"; pane.prepend(box); }
     if(!l.length){ box.innerHTML=`<div class="sec">Records up next</div><div class="loading" style="padding:4px 14px 10px">No records waiting. Open an album's sleeve and tap “+ Queue record”.</div>`; return; }
-    box.innerHTML=`<div class="sec">Records up next — each one goes on when the record playing now is done</div>`+l.map((it,i)=>`
+    box.innerHTML=`<div class="sec">Records up next</div><div class="loading" id="rqWhen" style="padding:0 14px 6px;text-align:left"></div>`+l.map((it,i)=>`
       <div class="trk static rq"><span class="n">${i+1}</span>
         <div style="display:flex;gap:10px;align-items:center;min-width:0">${it.art?`<img src="${esc(it.art)}" alt="" style="width:38px;height:38px;border-radius:4px;flex:none">`:""}<div style="min-width:0"><div class="t1">${esc(it.name)}</div><div class="t2">${esc(it.sub)}</div></div></div>
         <span class="d" style="display:flex;gap:2px">
           <button class="rqb" data-a="up" data-i="${i}" title="Move up" ${i?"":"disabled"}>▲</button>
           <button class="rqb" data-a="now" data-i="${i}" title="Put it on now">▶</button>
           <button class="rqb" data-a="del" data-i="${i}" title="Remove">×</button></span><span></span></div>`).join("");
+    updateRqWhen();
     box.querySelectorAll(".rqb").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const i=+b.dataset.i;
       if(b.dataset.a==="up") recQ.move(i,-1);
       else if(b.dataset.a==="del") recQ.remove(i);
@@ -2623,7 +2676,6 @@
         const rec=t.recording||{}; scan(rec.relations);
         const w=[];
         (rec.relations||[]).forEach(r=>{ if(r["target-type"]==="work" && r.work){
-          scan((r.work.relations||[]).filter(x=>x["target-type"]==="place"));
           (r.work.relations||[]).forEach(x=>{ if(x["target-type"]==="artist" && x.artist && /^(composer|lyricist|writer|librettist)$/.test(x.type) && !w.includes(x.artist.name)) w.push(x.artist.name); });
         }});
         tracks.push({title:t.title, writers:w});
@@ -2738,7 +2790,7 @@
         H.push(`<div class="jk-side"><h4>Side ${sd.letter}<span>${mmss(tot)}</span></h4>`);
         sd.idx.forEach((i,k)=>{
           const t=sp.tracks[i], wr=writersFor(t,i), feat=t.artists.filter(a=>!sp.artists.includes(a));
-          H.push(`<div class="jk-tr${t.uri===S.trackUri?" now":""}" data-i="${i}" title="Play this song"><span class="n">${k+1}.</span><span>${esc(t.name)}${feat.length?` <span style="color:#7d6b57">(feat. ${esc(feat.join(", "))})</span>`:""}</span><span class="d">${mmss(t.dur)}</span>${wr.length?`<span class="w">${esc(wr.join(", "))}</span>`:""}</div>`);
+          H.push(`<div class="jk-tr${t.uri===S.trackUri?" now":""}" data-i="${i}" data-u="${esc(t.uri)}" title="Play this song"><span class="n">${k+1}.</span><span>${esc(t.name)}${feat.length?` <span style="color:#7d6b57">(feat. ${esc(feat.join(", "))})</span>`:""}</span><span class="d">${mmss(t.dur)}</span>${wr.length?`<span class="w">${esc(wr.join(", "))}</span>`:""}</div>`);
         });
         H.push(`</div>`);
       });
@@ -2775,7 +2827,7 @@
       });
     }
 
-    const CACHE_V=1, cacheKey=id=>"jk."+id;
+    const CACHE_V=2, cacheKey=id=>"jk."+id;
     async function load(id){
       const sp=await spotifyAlbum(id); if(JK.id!==id) return;
       const d={sp}; render(d);
@@ -2808,7 +2860,9 @@
     $("jkFront").onclick=flip; $("jkFlip").onclick=flip; $("jkClose").onclick=close;
     $("jk").addEventListener("click",e=>{ if(e.target.id==="jk") close(); });
     document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("jk").classList.contains("hidden")){ close(); e.stopPropagation(); } },true);
-    window.__sleeve={open,close,flip,parseRelease,sidesOf};
+    // keep the "playing now" highlight on the song that's actually playing
+    function mark(){ document.querySelectorAll("#jkBack .jk-tr").forEach(r=>r.classList.toggle("now", r.dataset.u===S.trackUri)); }
+    window.__sleeve={open,close,flip,parseRelease,sidesOf,mark};
   })();
 
   // ================= Picture-in-Picture mini player (v34) =================
@@ -2865,7 +2919,9 @@
       const u=S&&(S.big||S.art)||"";
       if(u!==artUrl){ artUrl=u; art=null; if(u){ const im=new Image(); im.crossOrigin="anonymous"; im.src=u; art=im; } }
       if(!glLive() || performance.now()-lastGL>500) draw2D();
-      const t=$("title").textContent, a=$("artist").textContent, pl=!!(S&&S.playing), key=t+"|"+a+"|"+pl;
+      const si=window.__sideInfo&&window.__sideInfo(), sd=si?((si.letter?"Side "+si.letter+(si.text?" · ":""):"")+si.text):"";
+      const t=$("title").textContent, a=$("artist").textContent, pl=!!(S&&S.playing), key=t+"|"+a+"|"+pl+"|"+sd;
+      if(mode==="doc" && pw && key!==metaKey){ const e=pw.document.getElementById("sd"); if(e) e.textContent=sd; }
       if(key!==metaKey){ metaKey=key; updateMeta(t,a,pl,u); }
     }
     const ICON_P='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', ICON_Z='<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
@@ -2884,27 +2940,34 @@
       const d=pw.document; d.title="Vinylify";
       d.head.innerHTML=`<style>
         html,body{margin:0;height:100%;background:${BG};color:#f4e8d6;font:14px -apple-system,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden;user-select:none}
-        body{display:flex;flex-direction:column}
-        #m{flex:1;width:100%;min-height:0;display:block;cursor:pointer}
+        #m{position:absolute;left:0;top:0;width:100%;height:calc(100% - var(--ctl,0px));display:block;cursor:pointer}
+        .ov{position:absolute;left:0;right:0;bottom:0}
         .meta{padding:4px 14px 0;text-align:center}
+        #sd{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#16110d;background:#e9a24b;border-radius:10px;padding:1px 8px;margin-bottom:3px}
+        #sd:empty{display:none}
         #t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         #a{color:#b5a690;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .c{display:flex;justify-content:center;align-items:center;gap:14px;padding:8px 0 12px}
+        .c{display:flex;justify-content:center;align-items:center;gap:12px;padding:6px 0 10px}
         button{background:none;border:0;color:#f4e8d6;cursor:pointer;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;padding:0}
         button:hover{background:rgba(244,232,214,.1)}
         button svg{width:24px;height:24px;fill:currentColor}
         #pp{background:#e9a24b;color:#16110d;width:50px;height:50px}
         #fl{font-size:13px;width:auto;padding:0 10px;border-radius:20px;color:#b5a690}
-        @media (max-height:230px){ .meta{display:none} }
+        @media (max-height:300px){ #a{display:none} .c{padding:4px 0 6px} #pp{width:42px;height:42px} }
+        @media (max-height:220px){ .meta{display:none} }
+        @media (max-height:150px){ .ov{display:none} }
       </style>`;
       d.body.innerHTML=`<canvas id="m" title="Play / pause"></canvas>
-        <div class="meta"><div id="t"></div><div id="a"></div></div>
+        <div class="ov"><div class="meta"><div id="sd"></div><div id="t"></div><div id="a"></div></div>
         <div class="c">
           <button id="pv" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
           <button id="pp" title="Play / pause"></button>
           <button id="nx" title="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg></button>
           <button id="fl" title="Flip the record">↻ Flip</button>
-        </div>`;
+        </div></div>`;
+      // the turntable fills whatever room the song info and buttons leave, at any window size
+      const ov=d.querySelector(".ov"); const fit=()=>d.documentElement.style.setProperty("--ctl", ov.offsetHeight+"px");
+      try{ new pw.ResizeObserver(fit).observe(ov); }catch(e){} pw.addEventListener("resize",fit); fit();
       mirror=d.getElementById("m"); mctx=mirror.getContext("2d");
       d.getElementById("pv").onclick=()=>press("prevBtn");
       d.getElementById("pp").onclick=()=>press("playBtn");
