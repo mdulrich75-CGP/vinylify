@@ -463,6 +463,50 @@
   @keyframes flipPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.04)}}
   @media (min-width:900px){ #app:not(.fullpage) ~ #flipBtn{bottom:auto;top:calc(var(--safe-t) + 74px)} }
 
+  /* ===== album sleeve (v35): front cover, flip for the back with tracks, credits and notes ===== */
+  .jk{position:fixed;inset:0;z-index:58;background:rgba(10,7,5,.84);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:calc(var(--safe-t) + 10px) 10px calc(var(--safe-b) + 10px)}
+  .jk.hidden{display:none}
+  .jk-stage{perspective:1800px}
+  .jk-card{position:relative;width:min(94vw,calc(100vh - 110px),680px);aspect-ratio:1;transform-style:preserve-3d;transition:transform .85s cubic-bezier(.3,.7,.2,1)}
+  .jk-card.back{transform:rotateY(180deg)}
+  @media (max-aspect-ratio:3/4){ .jk-card.back{aspect-ratio:auto;height:calc(100dvh - 120px - var(--safe-t) - var(--safe-b))} }
+  .jk-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:3px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.65),inset 0 0 0 1px rgba(255,255,255,.07)}
+  .jk-front{cursor:pointer;background:linear-gradient(135deg,#8a4524,#3d2416)}
+  .jk-front img{width:100%;height:100%;object-fit:cover;display:block}
+  .jk-front::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.10),transparent 35%,transparent 70%,rgba(0,0,0,.18));pointer-events:none}
+  .jk-hint{position:absolute;right:12px;bottom:12px;z-index:2;font-size:12px;background:rgba(0,0,0,.6);color:#f4e8d6;padding:5px 11px;border-radius:20px}
+  .jk-back{transform:rotateY(180deg);color:#2b2118;background:#ebe1cd;background-image:radial-gradient(rgba(0,0,0,.035) 1px,transparent 1px),linear-gradient(135deg,#efe6d4,#e2d6be);background-size:3px 3px,100% 100%}
+  .jk-scroll{position:absolute;inset:0;overflow:auto;padding:clamp(16px,4.5%,34px);font-size:clamp(11.5px,1.75vh,14px);line-height:1.42;-webkit-overflow-scrolling:touch}
+  .jk-scroll a{color:#7a3b1d}
+  .jk-h{font-family:"DM Serif Display",serif;font-size:clamp(22px,4.4vh,36px);line-height:1.05;margin:0}
+  .jk-by{font-size:1.15em;font-weight:700;margin:4px 0 2px}
+  .jk-facts{color:#6b5a48;font-size:.92em}
+  .jk-rule{border:0;border-top:1.5px solid #2b2118;margin:12px 0}
+  .jk-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:6px 26px}
+  .jk-side h4,.jk-sec h4{font-size:.78em;letter-spacing:.16em;text-transform:uppercase;margin:6px 0 4px;color:#7a3b1d;display:flex;justify-content:space-between}
+  .jk-side h4 span{color:#6b5a48;letter-spacing:.05em}
+  .jk-tr{display:grid;grid-template-columns:1.7em 1fr auto;gap:0 6px;padding:2px 0;cursor:pointer;border-radius:3px}
+  .jk-tr:hover{background:rgba(122,59,29,.08)}
+  .jk-tr.now{font-weight:700;color:#7a3b1d}
+  .jk-tr .n{color:#8a7864;text-align:right}
+  .jk-tr .d{color:#6b5a48;font-variant-numeric:tabular-nums}
+  .jk-tr .w{grid-column:2/4;font-size:.84em;color:#7d6b57;font-style:italic;font-weight:400}
+  .jk-sec{margin-top:10px}
+  .jk-sec p{margin:0 0 .6em}
+  .jk-cr{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px}
+  .jk-cr b{font-weight:700;white-space:nowrap}
+  .jk-mus{columns:2 220px;column-gap:24px}
+  .jk-mus div{break-inside:avoid;padding:1px 0}
+  .jk-tags{display:flex;flex-wrap:wrap;gap:5px}
+  .jk-tags span{border:1px solid #b8a88f;border-radius:20px;padding:1px 9px;font-size:.88em}
+  .jk-fine{margin-top:14px;font-size:.8em;color:#6b5a48}
+  .jk-load{color:#8a7864;font-style:italic}
+  .jk-load::before{content:"";display:inline-block;width:.8em;height:.8em;margin-right:6px;border:2px solid #b8a88f;border-top-color:#7a3b1d;border-radius:50%;animation:jkspin 1s linear infinite;vertical-align:-1px}
+  @keyframes jkspin{to{transform:rotate(360deg)}}
+  .jk-bar{display:flex;gap:10px}
+  .jk-bar button{background:#2d241c;color:var(--text);border:1px solid var(--line);border-radius:22px;height:40px;padding:0 18px;font:inherit;font-size:14px;cursor:pointer}
+  .jk-bar button:hover{border-color:var(--accent)}
+  #jkClose{width:40px;padding:0;font-size:22px;line-height:1}
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
@@ -504,6 +548,7 @@
       <button class="icon-btn" id="setBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
       <button class="icon-btn" id="tiltBtn" title="3D / flat turntable" aria-label="3D or flat turntable" style="font-size:11.5px;font-weight:700;letter-spacing:.02em">3D</button>
       <button class="icon-btn" id="stageBtn" title="Full-page record (or double-tap the record)" aria-label="Full-page record"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z"/></svg></button>
+      <button class="icon-btn" id="sleeveBtn2" title="Album sleeve — tracks, credits and the story behind the album" aria-label="Album sleeve"><svg viewBox="0 0 24 24"><path d="M3 3h13v18H3V3zm2 2v14h9V5H5zm12.5 1.2A7 7 0 0 1 17.5 17.8v-2.3a4.8 4.8 0 0 0 0-7z"/><circle cx="9.5" cy="12" r="2.2"/></svg></button>
       <button class="icon-btn" id="pipBtn" title="Pop out a mini turntable that stays on top" aria-label="Pop out mini player"><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16.01H3V4.98h18v14.03z"/></svg></button>
       <button class="icon-btn" id="sfxBtn" title="Record sound effects" aria-label="Toggle sound effects"><svg viewBox="0 0 24 24" id="sfxIcon"></svg></button>
       <button class="chip" id="deviceChip" title="Choose device"><span class="dot"></span><span id="deviceName">No active device</span></button>
@@ -561,6 +606,7 @@
         <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
         <input type="range" id="vol" min="0" max="100" value="50" aria-label="Volume">
         <button class="ctl small" id="flipNowBtn" aria-label="Flip the record" title="Flip the record to the other side">↻ Flip</button>
+        <button class="ctl small" id="sleeveBtn" aria-label="Album sleeve" title="Album sleeve — tracks, credits and the story behind the album" style="width:38px;height:38px;color:var(--muted)"><svg viewBox="0 0 24 24"><path d="M3 3h13v18H3V3zm2 2v14h9V5H5zm12.5 1.2A7 7 0 0 1 17.5 17.8v-2.3a4.8 4.8 0 0 0 0-7z"/><circle cx="9.5" cy="12" r="2.2"/></svg></button>
         <button class="ctl small" id="queueBtn" aria-label="Queue" title="Queue" style="width:38px;height:38px;color:var(--muted)"><svg viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm14-4v6.2A3 3 0 1 0 19 19v-7h3v-2h-5z"/></svg></button>
       </div>
       </div>
@@ -634,6 +680,15 @@
   </div>
   <label class="opt"><input type="checkbox" id="optSfx"><div><div class="t1">Record sounds</div><div class="t2">Needle drop, crackle and run-out groove. Muted automatically while music plays on the phone you're holding.</div></div></label>
 </div>
+<div class="jk hidden" id="jk" role="dialog" aria-label="Album sleeve">
+  <div class="jk-stage">
+    <div class="jk-card" id="jkCard">
+      <div class="jk-face jk-front" id="jkFront"><img id="jkCover" alt=""><div class="jk-hint">Tap to turn it over ↻</div></div>
+      <div class="jk-face jk-back"><div class="jk-scroll" id="jkBack"></div></div>
+    </div>
+  </div>
+  <div class="jk-bar"><button id="jkFlip">↻ Turn over</button><button id="jkClose" aria-label="Close">×</button></div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -648,7 +703,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "34";
+  const APP_VERSION = "35";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -883,7 +938,7 @@
     const imgs=(item.album&&item.album.images)||item.images||[];
     setArt(imgs.length?(imgs[1]||imgs[0]).url:null, imgs.length?imgs[0].url:null);
     document.title = item.name+" · "+by;
-    S.albumName=album; S.byName=by;
+    S.albumName=album; S.byName=by; S.albumUri=item.album?item.album.uri:null; S.albumObj=item.album||null;
     $("miniT").textContent=item.name+" — "+by; if(imgs.length) $("miniArt").src=(imgs[imgs.length-1]||imgs[0]).url;
   }
   function setArt(url,big){
@@ -2399,6 +2454,266 @@
     schedulePoll();
     document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ lastTouch=Date.now(); refresh().finally(schedulePoll); } else if(!window.__pipOn) clearPoll(); });
   }
+
+  // ================= Album sleeve (v35) =================
+  // The front is the cover. Turn it over for the back: the track list split into record sides,
+  // plus label, credits and musicians from MusicBrainz and the album's story from Wikipedia.
+  // Everything found is saved on this screen, so each album is only looked up once.
+  (function(){
+    const JK={id:null, uri:null};
+    const wait=ms=>new Promise(r=>setTimeout(r,ms));
+    const mmss=ms=>{ const s=Math.round((ms||0)/1000); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+    const norm=s=>String(s||"").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g,"").replace(/\s*[\(\[].*?[\)\]]\s*/g," ").replace(/\s+-\s+.*$/,"").replace(/[^a-z0-9]+/g," ").trim();
+    const cleanAlbum=s=>String(s||"").replace(/\s*[\(\[][^\)\]]*(remaster|deluxe|edition|expanded|anniversary|version|mono|stereo|bonus)[^\)\]]*[\)\]]/ig,"").replace(/\s+-\s+.*(remaster|deluxe|edition|anniversary|version).*$/i,"").trim();
+    const cap=s=>String(s||"").charAt(0).toUpperCase()+String(s||"").slice(1);
+    async function getJSON(url){ const r=await fetch(url); if(!r.ok){ const e=new Error("HTTP "+r.status); e.status=r.status; throw e; } return r.json(); }
+
+    // ---- MusicBrainz (free music encyclopedia; asks for at most one request a second) ----
+    let mbLast=0;
+    async function mb(path){
+      for(let a=0;a<3;a++){
+        const w=mbLast+1100-Date.now(); if(w>0) await wait(w); mbLast=Date.now();
+        try{ return await getJSON("https://musicbrainz.org/ws/2/"+path+(path.includes("?")?"&":"?")+"fmt=json"); }
+        catch(e){ if(e.status===503 || !e.status){ await wait(1500); continue; } throw e; }
+      }
+      throw new Error("MusicBrainz busy");
+    }
+    function pickRelease(list, ntr){
+      const ok=(list||[]).filter(r=>(r.score||0)>=70);
+      ok.sort((a,b)=>((b["track-count"]===ntr)-(a["track-count"]===ntr)) || ((b.status==="Official")-(a.status==="Official")) || ((b.score||0)-(a.score||0)));
+      return ok[0]||null;
+    }
+    async function findRelease(sp){
+      const upc=sp.upc, ntr=sp.total;
+      if(upc){
+        const codes=[upc]; const z=upc.replace(/^0+/,""); if(z!==upc) codes.push(z); else codes.push("0"+upc);
+        for(const code of codes){ const d=await mb("release?limit=10&query="+encodeURIComponent("barcode:"+code)); const r=pickRelease(d.releases,ntr); if(r) return {id:r.id, how:"barcode"}; }
+      }
+      const q=`release:"${cleanAlbum(sp.name).replace(/"/g,"")}" AND artist:"${(sp.artists[0]||"").replace(/"/g,"")}"`;
+      const d=await mb("release?limit=15&query="+encodeURIComponent(q));
+      const r=pickRelease((d.releases||[]).filter(x=>(x.score||0)>=85), ntr);
+      return r ? {id:r.id, how:"name"} : null;
+    }
+    const ROLE={producer:"Produced by", engineer:"Engineered by", recording:"Recorded by", mix:"Mixed by", mastering:"Mastered by",
+      arranger:"Arranged by", orchestrator:"Orchestrated by", conductor:"Conducted by", "chorus master":"Chorus master", programming:"Programming",
+      design:"Design", "design/illustration":"Design & illustration", illustration:"Illustration", photography:"Photography", "art direction":"Art direction",
+      "graphic design":"Graphic design", "liner notes":"Liner notes", remixer:"Remixed by", editor:"Edited by", "sound":"Sound", "balance":"Balance engineer",
+      "audio":"Audio engineer", "mix-DJ":"DJ mix", "vocal arranger":"Vocal arrangement", "instrument arranger":"Arranged by", "concertmaster":"Concertmaster"};
+    const PLACE={"recorded at":"Recorded at", "mixed at":"Mixed at", "mastered at":"Mastered at", "edited at":"Edited at", "engineered at":"Engineered at", "produced at":"Produced at", "remixed at":"Remixed at"};
+    const ORDER=["Produced by","Recorded at","Recorded by","Engineered by","Mixed at","Mixed by","Mastered at","Mastered by","Arranged by","Orchestrated by","Conducted by"];
+    const DROP=["additional","guest","solo","minor","co","executive","assistant","associate","translated","pre","sub","live","task"];
+    function parseRelease(rel, rg){
+      const roles={}, mus={}, writers=[];
+      const add=(role,name)=>{ if(!name) return; (roles[role]=roles[role]||[]); if(!roles[role].includes(name)) roles[role].push(name); };
+      const addM=(name,what)=>{ (mus[name]=mus[name]||[]); what.forEach(w=>{ if(w && !mus[name].includes(w)) mus[name].push(w); }); };
+      function scan(rels){
+        (rels||[]).forEach(r=>{
+          const at=(r.attributes||[]);
+          if(r["target-type"]==="artist" && r.artist){
+            const n=r.artist.name, kinds=at.filter(a=>!DROP.includes(a));
+            if(r.type==="instrument") addM(n, kinds.length?kinds:["instruments"]);
+            else if(r.type==="vocal") addM(n, kinds.length?kinds.map(k=>/vocal/.test(k)?k:k+" vocals"):["vocals"]);
+            else if(r.type==="performer" || r.type==="performing orchestra") addM(n, kinds.length?kinds:["performer"]);
+            else if(r.type==="misc") {}
+            else{
+              let role=ROLE[r.type]||cap(r.type);
+              if(at.includes("executive")) role="Executive producer";
+              else if(at.includes("assistant")) role="Assistant "+r.type;
+              else if(at.includes("co")) role="Co-produced by";
+              add(role,n);
+            }
+          } else if(r["target-type"]==="place" && r.place){
+            const area=r.place.area&&r.place.area.name;
+            add(PLACE[r.type]||cap(r.type), r.place.name+(area && !r.place.name.includes(area)?", "+area:""));
+          }
+        });
+      }
+      scan(rel.relations);
+      const tracks=[];
+      (rel.media||[]).forEach(m=>(m.tracks||[]).forEach(t=>{
+        const rec=t.recording||{}; scan(rec.relations);
+        const w=[];
+        (rec.relations||[]).forEach(r=>{ if(r["target-type"]==="work" && r.work){
+          scan((r.work.relations||[]).filter(x=>x["target-type"]==="place"));
+          (r.work.relations||[]).forEach(x=>{ if(x["target-type"]==="artist" && x.artist && /^(composer|lyricist|writer|librettist)$/.test(x.type) && !w.includes(x.artist.name)) w.push(x.artist.name); });
+        }});
+        tracks.push({title:t.title, writers:w});
+      }));
+      const labels=(rel["label-info"]||[]).map(li=>({name:li.label&&li.label.name, cat:li["catalog-number"]})).filter(l=>l.name||l.cat);
+      const gsrc=(rg&&rg.genres&&rg.genres.length?rg.genres:(rel.genres&&rel.genres.length?rel.genres:(rg&&rg.tags)||[]));
+      const genres=gsrc.slice().sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,6).map(g=>g.name);
+      const formats=[...new Set((rel.media||[]).map(m=>m.format).filter(Boolean))];
+      return { mbid:rel.id, rgid:rg&&rg.id, roles, mus, tracks, labels, genres,
+        firstDate:(rg&&rg["first-release-date"])||"", date:rel.date||"", country:rel.country||"",
+        type:rg?[rg["primary-type"],...(rg["secondary-types"]||[])].filter(Boolean).join(" · "):"", formats,
+        urls:((rg&&rg.relations)||[]).map(r=>({type:r.type, url:r.url&&r.url.resource})).filter(u=>u.url) };
+    }
+    async function musicbrainz(sp){
+      const f=await findRelease(sp); if(!f) return {none:true};
+      const rel=await mb(`release/${f.id}?inc=artist-credits+labels+recordings+release-groups+artist-rels+place-rels+recording-rels+work-rels+recording-level-rels+work-level-rels+genres`);
+      let rg=null; const rgid=rel["release-group"]&&rel["release-group"].id;
+      if(rgid){ try{ rg=await mb(`release-group/${rgid}?inc=url-rels+genres+tags`); }catch(e){ rg=rel["release-group"]; } }
+      const out=parseRelease(rel, rg); out.how=f.how; return out;
+    }
+
+    // ---- Wikipedia: the album's own article, found through MusicBrainz's link when there is one ----
+    async function wikipedia(sp, m){
+      let title=null;
+      const urls=(m&&m.urls)||[];
+      const wp=urls.find(u=>u.type==="wikipedia" && /\/\/en\.wikipedia\.org\/wiki\//.test(u.url));
+      if(wp) title=decodeURIComponent(wp.url.split("/wiki/")[1]).replace(/_/g," ");
+      if(!title){ const wd=urls.find(u=>u.type==="wikidata");
+        if(wd){ try{ const q=wd.url.split("/").pop(); const d=await getJSON(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${q}&props=sitelinks&sitefilter=enwiki&format=json&origin=*`);
+          title=d.entities&&d.entities[q]&&d.entities[q].sitelinks&&d.entities[q].sitelinks.enwiki&&d.entities[q].sitelinks.enwiki.title; }catch(e){} } }
+      if(!title){                                  // no link: search, but only accept a page that is clearly this album
+        const name=cleanAlbum(sp.name), art=norm(sp.artists[0]);
+        const d=await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name+" "+sp.artists[0]+" album")}&srlimit=4&format=json&origin=*`);
+        for(const hit of (d.query&&d.query.search)||[]){
+          if(!norm(hit.title).startsWith(norm(name))) continue;
+          try{ const s=await getJSON("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(hit.title.replace(/ /g,"_")));
+            const desc=(s.description||"").toLowerCase();
+            if(/album|\bep\b|soundtrack|compilation|record/.test(desc) && (norm(desc).includes(art) || norm(s.extract).includes(art))){ title=s.title; break; } }catch(e){}
+        }
+      }
+      if(!title) return {none:true};
+      const d=await getJSON(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts|description&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(title)}&format=json&origin=*`);
+      const pg=Object.values((d.query&&d.query.pages)||{})[0];
+      if(!pg || pg.missing!=null || !pg.extract) return {none:true};
+      return { title:pg.title, desc:pg.description||"", text:pg.extract, url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(pg.title.replace(/ /g,"_")) };
+    }
+
+    // ---- Spotify's own album info ----
+    async function spotifyAlbum(id){
+      try{
+        const a=await api(`/albums/${id}`);
+        let items=(a.tracks&&a.tracks.items)||[];
+        if(a.tracks && a.tracks.total>items.length){ try{ const more=await api(`/albums/${id}/tracks`,{query:{limit:50,offset:items.length}}); items=items.concat(more.items||[]); }catch(e){} }
+        return { id, uri:a.uri, name:a.name, artists:(a.artists||[]).map(x=>x.name), date:a.release_date||"", type:a.album_type||"",
+          total:a.total_tracks||items.length, upc:a.external_ids&&a.external_ids.upc, label:a.label||"",
+          copyrights:(a.copyrights||[]).map(c=>({type:c.type, text:c.text})), cover:a.images&&a.images[0]&&a.images[0].url,
+          tracks:items.filter(Boolean).map(t=>({uri:t.uri, name:t.name, dur:t.duration_ms, disc:t.disc_number||1, n:t.track_number, explicit:t.explicit, artists:(t.artists||[]).map(x=>x.name)})) };
+      }catch(e){                                   // fall back to what the player already told us
+        const al=S.albumObj||{}; const d=await fetchTracks({kind:"album",uri:"spotify:album:"+id,name:al.name});
+        return { id, uri:"spotify:album:"+id, name:al.name||S.albumName||"", artists:(al.artists||[]).map(x=>x.name), date:al.release_date||"", type:al.album_type||"",
+          total:al.total_tracks||((d&&d.tracks)||[]).length, upc:null, label:"", copyrights:[], cover:S.big,
+          tracks:((d&&d.tracks)||[]).map((t,i)=>({uri:t.uri, name:t.name, dur:t.dur, disc:1, n:i+1, artists:String(t.artists||"").split(", ")})) };
+      }
+    }
+
+    // ---- record sides: each disc splits into two sides at the song nearest half its running time ----
+    function sidesOf(tracks){
+      const discs={}; tracks.forEach((t,i)=>{ (discs[t.disc]=discs[t.disc]||[]).push(i); });
+      const out=[]; let letter=0;
+      Object.keys(discs).sort((a,b)=>a-b).forEach(k=>{
+        const idx=discs[k], durs=idx.map(i=>tracks[i].dur||0), tot=durs.reduce((a,b)=>a+b,0);
+        if(idx.length>=4 && tot>=12*60*1000){
+          let acc=0, cut=1, best=Infinity; for(let j=1;j<idx.length;j++){ acc+=durs[j-1]; const d=Math.abs(acc-tot/2); if(d<best){ best=d; cut=j; } }
+          out.push({letter:"ABCDEFGHIJKL"[letter++], idx:idx.slice(0,cut)}, {letter:"ABCDEFGHIJKL"[letter++], idx:idx.slice(cut)});
+        } else out.push({letter:"ABCDEFGHIJKL"[letter++], idx});
+      });
+      return out;
+    }
+
+    function fmtDate(s){
+      if(!s) return ""; const p=s.split("-");
+      if(p.length===1) return p[0];
+      const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return p.length===2 ? M[+p[1]-1]+" "+p[0] : M[+p[1]-1]+" "+(+p[2])+", "+p[0];
+    }
+
+    function render(d){
+      const sp=d.sp, m=d.mb&&!d.mb.none?d.mb:null, w=d.wiki&&!d.wiki.none?d.wiki:null;
+      const H=[];
+      H.push(`<h2 class="jk-h">${esc(sp.name)}</h2><div class="jk-by">${esc(sp.artists.join(", "))}</div>`);
+      const facts=[];
+      const orig=m&&m.firstDate; if(orig) facts.push("Released "+fmtDate(orig)); else if(sp.date) facts.push("Released "+fmtDate(sp.date));
+      if(orig && sp.date && sp.date.slice(0,4)!==orig.slice(0,4)) facts.push("this edition "+sp.date.slice(0,4));
+      if(m&&m.type) facts.push(m.type); else if(sp.type) facts.push(cap(sp.type));
+      const lab=(m&&m.labels&&m.labels[0]) ? m.labels[0] : (sp.label?{name:sp.label}:null);
+      if(lab) facts.push(esc(lab.name||"")+(lab.cat&&lab.cat!=="[none]"?" · "+esc(lab.cat):""));
+      const totalMs=sp.tracks.reduce((a,t)=>a+(t.dur||0),0);
+      facts.push(sp.tracks.length+" songs · "+Math.round(totalMs/60000)+" min");
+      H.push(`<div class="jk-facts">${facts.join(" &nbsp;·&nbsp; ")}</div>`);
+      if(w&&w.desc) H.push(`<div class="jk-facts" style="font-style:italic">${esc(cap(w.desc))}</div>`);
+      H.push(`<hr class="jk-rule">`);
+      // track list, by side, with songwriters under each song
+      const mt=m?m.tracks:[];
+      const writersFor=(t,i)=>{
+        if(!mt.length) return [];
+        if(mt.length===sp.tracks.length && norm(mt[i].title).slice(0,6)===norm(t.name).slice(0,6)) return mt[i].writers;
+        const hit=mt.find(x=>norm(x.title)===norm(t.name)); return hit?hit.writers:(mt.length===sp.tracks.length?mt[i].writers:[]);
+      };
+      H.push(`<div class="jk-sides">`);
+      sidesOf(sp.tracks).forEach(sd=>{
+        const tot=sd.idx.reduce((a,i)=>a+(sp.tracks[i].dur||0),0);
+        H.push(`<div class="jk-side"><h4>Side ${sd.letter}<span>${mmss(tot)}</span></h4>`);
+        sd.idx.forEach((i,k)=>{
+          const t=sp.tracks[i], wr=writersFor(t,i), feat=t.artists.filter(a=>!sp.artists.includes(a));
+          H.push(`<div class="jk-tr${t.uri===S.trackUri?" now":""}" data-i="${i}" title="Play this song"><span class="n">${k+1}.</span><span>${esc(t.name)}${feat.length?` <span style="color:#7d6b57">(feat. ${esc(feat.join(", "))})</span>`:""}</span><span class="d">${mmss(t.dur)}</span>${wr.length?`<span class="w">${esc(wr.join(", "))}</span>`:""}</div>`);
+        });
+        H.push(`</div>`);
+      });
+      H.push(`</div>`);
+      // the story
+      if(w){
+        const paras=w.text.split(/\n+/).filter(s=>s.trim());
+        H.push(`<hr class="jk-rule"><div class="jk-sec"><h4>About this album</h4>${paras.map(p=>`<p>${esc(p)}</p>`).join("")}<div class="jk-facts">From Wikipedia — <a href="${esc(w.url)}" target="_blank" rel="noopener">read the full article</a></div></div>`);
+      } else if(!d.wiki) H.push(`<hr class="jk-rule"><div class="jk-sec jk-load">Looking for the album's story…</div>`);
+      // credits
+      if(m){
+        const keys=Object.keys(m.roles).sort((a,b)=>{ const ia=ORDER.indexOf(a), ib=ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b); });
+        if(keys.length){ H.push(`<hr class="jk-rule"><div class="jk-sec"><h4>Credits</h4><div class="jk-cr">${keys.map(k=>`<b>${esc(k)}</b><span>${esc(m.roles[k].join(", "))}</span>`).join("")}</div></div>`); }
+        const names=Object.keys(m.mus);
+        if(names.length){ H.push(`<div class="jk-sec"><h4>Musicians</h4><div class="jk-mus">${names.map(n=>`<div><b>${esc(n)}</b> — ${esc(m.mus[n].join(", "))}</div>`).join("")}</div></div>`); }
+        if(m.genres.length) H.push(`<div class="jk-sec"><h4>Genres</h4><div class="jk-tags">${m.genres.map(g=>`<span>${esc(g)}</span>`).join("")}</div></div>`);
+        if(!keys.length && !names.length) H.push(`<hr class="jk-rule"><div class="jk-sec jk-facts">MusicBrainz has this album but no detailed credits for it yet.</div>`);
+      } else if(!d.mb) H.push(`<div class="jk-sec jk-load">Looking up credits and musicians…</div>`);
+      else H.push(`<hr class="jk-rule"><div class="jk-sec jk-facts">No credits found for this album on MusicBrainz.</div>`);
+      // the fine print
+      const fine=[];
+      sp.copyrights.forEach(c=>fine.push(esc((c.type==="P"&&!/℗|\(P\)/.test(c.text)?"℗ ":c.type==="C"&&!/©|\(C\)/.test(c.text)?"© ":"")+c.text)));
+      if(m && m.labels.length>1) fine.push("Labels: "+m.labels.map(l=>esc(l.name+(l.cat&&l.cat!=="[none]"?" ("+l.cat+")":""))).join(", "));
+      if(sp.upc) fine.push("Barcode "+esc(sp.upc));
+      const src=[`<a href="https://open.spotify.com/album/${esc(sp.id)}" target="_blank" rel="noopener">Spotify</a>`];
+      if(m) src.push(`<a href="https://musicbrainz.org/release/${esc(m.mbid)}" target="_blank" rel="noopener">MusicBrainz</a>`+(m.how==="name"?" (matched by name)":""));
+      if(w) src.push(`<a href="${esc(w.url)}" target="_blank" rel="noopener">Wikipedia</a>`);
+      fine.push("Info from "+src.join(", "));
+      H.push(`<div class="jk-fine">${fine.map(f=>`<div>${f}</div>`).join("")}</div>`);
+      const box=$("jkBack"), top=box.scrollTop; box.innerHTML=H.join(""); box.scrollTop=top;
+      box.querySelectorAll(".jk-tr").forEach(r=>r.onclick=()=>{
+        const t=sp.tracks[+r.dataset.i];
+        act(()=>api("/me/player/play",{method:"PUT",body:{context_uri:sp.uri, offset:{uri:t.uri}}}));
+      });
+    }
+
+    const CACHE_V=1, cacheKey=id=>"jk."+id;
+    async function load(id){
+      const sp=await spotifyAlbum(id); if(JK.id!==id) return;
+      const d={sp}; render(d);
+      let c=null; try{ c=JSON.parse(store.get(cacheKey(id))||"null"); }catch(e){}
+      if(c && c.v===CACHE_V && Date.now()-c.t<30*86400000){ d.mb=c.mb; d.wiki=c.wiki; render(d); return; }
+      try{ d.mb=await musicbrainz(sp); }catch(e){ d.mb={none:true, failed:true}; }
+      if(JK.id!==id) return; render(d);
+      try{ d.wiki=await wikipedia(sp, d.mb.none?null:d.mb); }catch(e){ d.wiki={none:true, failed:true}; }
+      if(JK.id!==id) return; render(d);
+      if(!d.mb.failed && !d.wiki.failed){ try{ store.set(cacheKey(id), JSON.stringify({v:CACHE_V, t:Date.now(), mb:d.mb, wiki:d.wiki})); }catch(e){} }
+    }
+
+    function open(){
+      const uri=S.albumUri; if(!uri || !uri.startsWith("spotify:album:")){ toast("Play a song first — then its album sleeve is here."); return; }
+      const id=idOf(uri);
+      $("jkCover").src=S.big||S.art||""; $("jkCard").classList.remove("back");
+      $("jk").classList.remove("hidden");
+      if(JK.id!==id){ JK.id=id; $("jkBack").innerHTML=`<div class="jk-load">Opening the sleeve…</div>`; load(id).catch(()=>{ if(JK.id===id) $("jkBack").innerHTML=`<div class="jk-facts">Couldn't load this album's details. Check the internet connection and try again.</div>`; JK.id=null; }); }
+    }
+    const close=()=>$("jk").classList.add("hidden");
+    const flip=()=>$("jkCard").classList.toggle("back");
+    $("sleeveBtn").onclick=$("sleeveBtn2").onclick=()=>{ open(); try{ pokeHud(); }catch(e){} };
+    $("jkFront").onclick=flip; $("jkFlip").onclick=flip; $("jkClose").onclick=close;
+    $("jk").addEventListener("click",e=>{ if(e.target.id==="jk") close(); });
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("jk").classList.contains("hidden")){ close(); e.stopPropagation(); } },true);
+    window.__sleeve={open,close,flip,parseRelease,sidesOf};
+  })();
 
   // ================= Picture-in-Picture mini player (v34) =================
   // Chrome on a computer: a real little always-on-top window with the turntable and buttons
