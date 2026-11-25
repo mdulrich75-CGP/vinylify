@@ -593,7 +593,7 @@
         </div>
       </div>
 
-      <div class="hint" id="hint">Tap the record for controls · drag the arm to jump · double-tap to exit</div>
+      <div class="hint" id="hint">Tap anywhere or move the mouse for controls · drag the arm to jump · double-tap the record to exit</div>
       <div class="transport" id="transport">
       <div class="meta">
         <div class="title" id="title">Nothing playing</div>
@@ -717,7 +717,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "38";
+  const APP_VERSION = "39";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -923,7 +923,14 @@
   }
   function applyState(st){
     if(!matchesExpect(st)){ soon(1500); return; }                 // stale: ask again shortly
-    if(st && S.runout && st.is_playing){ clearRunout(); }           // music started from somewhere else
+    if(st && S.runout && st.is_playing){
+      // v39: right after a side ends, Spotify may already have rolled on into the next song before our
+      // pause reached it. That's not someone pressing play: pause it again and keep the run-out going.
+      if(performance.now()-(S.runout.at||0) < 20000 && !S.busy && !S.flipping){
+        api("/me/player/pause",{method:"PUT"}).catch(()=>{}); expectState({playing:false}); soon(2500); return;
+      }
+      clearRunout();                                                // music started from somewhere else
+    }
     const currentProgressBefore = S.playing ? currentProgress() : -1e9;
     if(!st){ S.playing=false; S.device=null; renderDevice(); renderPlay(); return; }
     const item=st.item;
@@ -1158,7 +1165,7 @@
     // the last song on this side is ending: stop, and let the needle ride the run-out groove
     if(lp && S.playing && !S.busy && !S.dragArm && !S.runout){
       const i=S.side.index[S.trackUri];
-      if(i!=null){ const sp=S.side.sides[sideOfIdx(i)]; if(i===sp.to && S.duration && S.duration-currentProgress()<700) endSide(sideOfIdx(i)); }
+      if(i!=null){ const sp=S.side.sides[sideOfIdx(i)]; if(i===sp.to && S.duration && S.duration-currentProgress()<1200) endSide(sideOfIdx(i)); }
     }
 
     // tonearm: on its rest when stopped; on the record at the real spot when playing
@@ -2023,13 +2030,14 @@
   S.runout=null; S.lpSideNow=null; S.flipAnim=null; S.tagOverride=null;
   function endSide(side){
     if(S.runout) return;
-    S.runout={side}; S.lpSideNow=side;
+    S.runout={side, at:performance.now()}; S.lpSideNow=side;
     S.progress=currentProgress(); S.playing=false; renderPlay();
     expectState({playing:false});
     api("/me/player/pause",{method:"PUT"}).catch(()=>{});
     Sound.runoutStart();
     $("flipBtn").textContent=`Side ${"AB"[side]} is over — tap the record to flip it ↻`;
     $("flipBtn").classList.add("on");
+    afterSide(side);                                   // v39: every side ending goes through here (flip / next record)
   }
   function clearRunout(){
     if(!S.runout) return;
@@ -2044,7 +2052,6 @@
       const was=S.lpSideNow;
       api("/me/player/seek",{method:"PUT",query:{position_ms:0}}).catch(()=>{});
       endSide(was);
-      afterSide(was);
     }
   }
   // ---- v37: what happens when a side ends: flip it, or put the next record on ----
@@ -2055,10 +2062,12 @@
     const last = !S.side || side>=S.side.sides.length-1;
     if(!last && autoFlipOn()){
       $("flipBtn").textContent=`Side ${"AB"[side]} is over — flipping to Side ${"AB"[side+1]}…`;
-      afterTimer=setTimeout(()=>{ if(S.runout && S.runout.side===side) flipRecord(); }, 3500);   // a few turns of run-out groove first
+      const go=()=>{ if(!(S.runout && S.runout.side===side)) return; if(S.busy||S.flipping){ afterTimer=setTimeout(go,800); return; } flipRecord(); };
+      afterTimer=setTimeout(go, 3500);                               // a few turns of run-out groove first
     } else if(recQ.list().length){
       $("flipBtn").textContent=`That's the end of the side — next record coming up…`;
-      afterTimer=setTimeout(()=>{ if(S.runout && S.runout.side===side) nextRecord(); }, 3500);
+      const go=()=>{ if(!(S.runout && S.runout.side===side)) return; if(S.busy||S.flipping){ afterTimer=setTimeout(go,800); return; } nextRecord(); };
+      afterTimer=setTimeout(go, 3500);
     }
   }
   // the record finished: Spotify moved past the album's last song, or stopped at the end of it
@@ -2442,7 +2451,8 @@
   let lastTap=0, gest=null, tapTimer=0;
   const dw=document.querySelector(".deck-wrap");
   const isLaptop=()=>window.innerWidth>=900;
-  dw.addEventListener("pointerdown",e=>{ gest={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now()}; try{ dw.setPointerCapture(e.pointerId); }catch(_){} });
+  let tapType="touch";
+  dw.addEventListener("pointerdown",e=>{ tapType=e.pointerType; gest={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now()}; try{ dw.setPointerCapture(e.pointerId); }catch(_){} });
   dw.addEventListener("pointermove",e=>{ if(gest){ gest.lx=e.clientX; gest.ly=e.clientY; } });
   dw.addEventListener("dragstart",e=>e.preventDefault());
   dw.addEventListener("dblclick",()=>{ try{ window.getSelection().removeAllRanges(); }catch(_){} });
@@ -2457,13 +2467,28 @@
       lastTap=now; clearTimeout(tapTimer);
       tapTimer=setTimeout(()=>{                                     // single tap
         if(S.runout){ flipRecord(); return; }                      // side is over: tapping the record flips it
-        if(stageOn) toggleHud();
+        if(stageOn){ if(tapType==="mouse") pokeHud(); else toggleHud(); }
         else if(isLaptop()) setStage(true);
       },330);
     }
   }
   dw.addEventListener("pointerup",e=>endGesture(e.clientX,e.clientY));
   dw.addEventListener("pointercancel",()=>{ if(gest) endGesture(gest.lx,gest.ly); });
+  // v39: in full-page view the controls are easy to bring up —
+  // moving the mouse shows them, and a tap or click anywhere on the screen (not just the record) does too
+  let lastMouse=null;
+  document.addEventListener("pointermove",e=>{
+    if(!stageOn || e.pointerType!=="mouse") return;
+    if(lastMouse && Math.hypot(e.clientX-lastMouse.x,e.clientY-lastMouse.y)>6) pokeHud();
+    lastMouse={x:e.clientX,y:e.clientY};
+  },{passive:true});
+  let bgTap=null;
+  $("app").addEventListener("pointerdown",e=>{ bgTap = (stageOn && !dw.contains(e.target) && !e.target.closest("button,input,a,.transport,.navbar,.orbit,#stageExit,.panel")) ? {x:e.clientX,y:e.clientY,type:e.pointerType} : null; },{passive:true});
+  $("app").addEventListener("pointerup",e=>{
+    const t=bgTap; bgTap=null; if(!t || !stageOn || Math.hypot(e.clientX-t.x,e.clientY-t.y)>12) return;
+    if(S.runout){ flipRecord(); return; }
+    if(t.type==="mouse") pokeHud(); else toggleHud();
+  });
 
   // ---- the hovering song list for whatever record is on the platter ----
   function currentRecordItem(){
