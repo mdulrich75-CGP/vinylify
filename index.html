@@ -507,6 +507,9 @@
   .jk-bar button{background:#2d241c;color:var(--text);border:1px solid var(--line);border-radius:22px;height:40px;padding:0 18px;font:inherit;font-size:14px;cursor:pointer}
   .jk-bar button:hover{border-color:var(--accent)}
   #jkClose{width:40px;padding:0;font-size:22px;line-height:1}
+  .jk-bar .jk-place{background:var(--accent);color:#1b130c;border-color:var(--accent);font-weight:700;display:flex;align-items:center;gap:8px}
+  .jk-bar .jk-place::before{content:"";width:16px;height:16px;border-radius:50%;background:radial-gradient(circle,#c4572a 0 26%,#1b130c 27%)}
+  .jk-bar .jk-place.hidden{display:none}
   #toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 90px);transform:translateX(-50%) translateY(20px);background:#2d241c;border:1px solid var(--line);padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;z-index:60;max-width:90vw;text-align:center;pointer-events:none}
   #toast.on{opacity:1;transform:translateX(-50%)}
 </style>
@@ -687,7 +690,7 @@
       <div class="jk-face jk-back"><div class="jk-scroll" id="jkBack"></div></div>
     </div>
   </div>
-  <div class="jk-bar"><button id="jkFlip">↻ Turn over</button><button id="jkClose" aria-label="Close">×</button></div>
+  <div class="jk-bar"><button id="jkFlip">↻ Turn over</button><button id="jkPlace" class="jk-place hidden">Place on turntable</button><button id="jkClose" aria-label="Close">×</button></div>
 </div>
 <div id="toast"></div>
 
@@ -703,7 +706,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "35";
+  const APP_VERSION = "36";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1643,7 +1646,9 @@
     coverFlow(host.querySelector(".flow"), items.length, i=>{
       cur=i; fT.textContent=items[i].name; fS.textContent=items[i].sub||"";
       clearTimeout(timer); timer=setTimeout(()=>showDetail(i), detailCache.has(items[i].uri)?0:650);
-    }, i=>playItem(items[i]), start);
+    }, i=>{ const it=items[i];                       // v36: an album opens its sleeve first; playlists play right away
+      if(it.kind==="album" && window.__sleeve) window.__sleeve.open(it); else playItem(it);
+    }, start);
   }
 
   // ================= Library: Liked Songs + your playlists =================
@@ -2681,8 +2686,8 @@
       H.push(`<div class="jk-fine">${fine.map(f=>`<div>${f}</div>`).join("")}</div>`);
       const box=$("jkBack"), top=box.scrollTop; box.innerHTML=H.join(""); box.scrollTop=top;
       box.querySelectorAll(".jk-tr").forEach(r=>r.onclick=()=>{
-        const t=sp.tracks[+r.dataset.i];
-        act(()=>api("/me/player/play",{method:"PUT",body:{context_uri:sp.uri, offset:{uri:t.uri}}}));
+        const i=+r.dataset.i, t=sp.tracks[i], it=JK.item||{kind:"album",uri:sp.uri,name:sp.name,sub:sp.artists.join(", "),art:S.art,big:S.big};
+        close(); playItem(it, i, {uri:t.uri, name:t.name, artists:t.artists.join(", "), dur:t.dur, art:it.art, big:it.big});
       });
     }
 
@@ -2699,16 +2704,22 @@
       if(!d.mb.failed && !d.wiki.failed){ try{ store.set(cacheKey(id), JSON.stringify({v:CACHE_V, t:Date.now(), mb:d.mb, wiki:d.wiki})); }catch(e){} }
     }
 
-    function open(){
-      const uri=S.albumUri; if(!uri || !uri.startsWith("spotify:album:")){ toast("Play a song first — then its album sleeve is here."); return; }
+    // open(item): a record picked while browsing (with a "Place on turntable" button);
+    // open() with nothing: the album that's playing now
+    function open(item){
+      if(item && item.kind!=="album") item=null;
+      const uri=item ? item.uri : S.albumUri; if(!uri || !uri.startsWith("spotify:album:")){ toast("Play a song first — then its album sleeve is here."); return; }
       const id=idOf(uri);
-      $("jkCover").src=S.big||S.art||""; $("jkCard").classList.remove("back");
+      JK.item=item||null;
+      $("jkPlace").classList.toggle("hidden", !item);
+      $("jkCover").src=(item?(item.big||item.art):(S.big||S.art))||""; $("jkCard").classList.remove("back");
       $("jk").classList.remove("hidden");
       if(JK.id!==id){ JK.id=id; $("jkBack").innerHTML=`<div class="jk-load">Opening the sleeve…</div>`; load(id).catch(()=>{ if(JK.id===id) $("jkBack").innerHTML=`<div class="jk-facts">Couldn't load this album's details. Check the internet connection and try again.</div>`; JK.id=null; }); }
     }
     const close=()=>$("jk").classList.add("hidden");
     const flip=()=>$("jkCard").classList.toggle("back");
-    $("sleeveBtn").onclick=$("sleeveBtn2").onclick=()=>{ open(); try{ pokeHud(); }catch(e){} };
+    $("jkPlace").onclick=()=>{ const it=JK.item; if(!it) return; close(); playItem(it); };
+    $("sleeveBtn").onclick=$("sleeveBtn2").onclick=()=>{ open(null); try{ pokeHud(); }catch(e){} };
     $("jkFront").onclick=flip; $("jkFlip").onclick=flip; $("jkClose").onclick=close;
     $("jk").addEventListener("click",e=>{ if(e.target.id==="jk") close(); });
     document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("jk").classList.contains("hidden")){ close(); e.stopPropagation(); } },true);
