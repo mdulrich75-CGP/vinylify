@@ -234,7 +234,15 @@
   @media (max-width:899px){
     .flow{height:calc(min(56vw,30vh) + 92px)}
     .flow-card{width:min(56vw,30vh)}
-    .capbtn{height:30px;padding:0 10px;font-size:12px}
+    /* phone: album name on its own line, then Sleeve · + Queue · ▶ underneath */
+    body .flow-cap{flex-wrap:wrap;justify-content:center;row-gap:10px;margin-top:-18px}
+    body .flow-cap .spacer40{display:none}
+    body .flow-cap .txt{flex:1 1 100%}
+    body .capbtn{height:38px;padding:0 16px;font-size:14px}
+    body .flow-cap .playmini{width:44px;height:44px}
+    /* the top bar was too crowded: the sleeve button lives next to the volume on a phone, and the
+       pop-out player is a computer thing */
+    #sleeveBtn2,#pipBtn{display:none}
   }
   @media (min-width:900px){
     #app.albumview #rpBtn{display:flex;position:absolute;top:56px;right:410px;z-index:6}
@@ -246,6 +254,29 @@
     #app.albumview .flow-card{width:min(calc(100vh - 360px),calc((100vw - 470px)*.36),640px);top:1%;box-shadow:0 30px 70px rgba(0,0,0,.7)}
     #app.albumview .flow-cap .t1{font-size:28px}
     #app.albumview .flow-cap{bottom:24px}
+  }
+
+  /* ---------- v43: big covers without the track list ---------- */
+  .vt-row{position:relative;height:0;z-index:6}
+  .viewtog{position:absolute;right:4px;top:2px;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:rgba(25,19,14,.75);color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .viewtog svg{width:14px;height:14px;fill:currentColor}
+  .viewtog:hover{color:var(--text);border-color:var(--accent)}
+  #app.nodetail .detail{display:none}
+  @media (max-width:899px){
+    #app.nodetail .panel{height:92vh;height:92dvh}
+    #app.nodetail .flow{height:calc(min(80vw, calc(92dvh - 400px)) + 96px)}
+    #app.nodetail .flow-card{width:min(80vw, calc(92dvh - 400px));top:30px}
+  }
+  @media (min-width:900px){
+    .vt-row{position:absolute;top:56px;right:580px;height:auto}
+    .viewtog{position:static;height:40px;padding:0 16px;font-size:14px;color:var(--text);background:rgba(25,19,14,.78)}
+    .viewtog svg{fill:var(--accent);width:16px;height:16px}
+    #app:not(.albumview) .vt-row{display:none}
+    #app.albumview.nodetail .flow,#app.albumview.nodetail .flow-cap{right:0}
+    #app.albumview.nodetail #rpBtn{right:0}
+    #app.albumview.nodetail .vt-row{right:170px}
+    #app.albumview.nodetail .flow-card{width:min(calc(100vh - 360px),calc((100vw - 60px)*.3),700px)}
+    #app.albumview.nodetail .more{right:10px}
   }
 
   /* ---------- cover flow (album results) ---------- */
@@ -750,7 +781,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "41";
+  const APP_VERSION = "43";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1557,6 +1588,7 @@
       const f=Math.round(clamp(pos));
       if(f!==focused){ if(focused!==-1) Sound.flick(); focused=f; onFocus(f); }
     }
+    try{ new ResizeObserver(()=>draw()).observe(cards[0]||el); }catch(e){}   // v43: re-space when the covers change size
     function tick(now){
       const dt=Math.min(.05,(now-last)/1000); last=now;
       pos += (target-pos)*Math.min(1,dt*11);
@@ -1696,6 +1728,7 @@
     const start=Math.max(0,Math.min(items.length-1,opts.start||0));
     host.innerHTML=`
       ${opts.back?`<div class="backbar"><button class="bk">‹ Back</button><span class="where">${esc(opts.backLabel||"")}</span></div>`:""}
+      <div class="vt-row"><button class="viewtog" title="Switch between big covers and covers with the track list"></button></div>
       <div class="flow">${items.map(it=>sleeveHTML("flow-card",it)).join("")}</div>
       <div class="flow-cap"><span class="spacer40"></span><div class="txt"><div class="t1 fT"></div><div class="t2 fS"></div></div><span class="capacts"><button class="capbtn cs" title="Open the sleeve — tracks, credits, the album's story">Sleeve</button><button class="capbtn cq" title="Queue this record — it goes on when the one playing now is done">+ Queue</button></span><button class="playmini" title="Place on turntable" aria-label="Place on turntable">${PLAY_SVG}</button></div>
       <div class="detail"></div>
@@ -1706,6 +1739,11 @@
     host._focusUri = uri => { const k=items.findIndex(it=>it.uri===uri); if(k>=0 && k!==cur) renderBrowser(host, items, {...opts, start:k}); };
     host.querySelector(".playmini").onclick=()=>playItem(items[cur]);
     const capActs=host.querySelector(".capacts");
+    // v43: Album view (big covers, tap an album for its sleeve) or List view (covers + track list)
+    const vt=host.querySelector(".viewtog");
+    const setTog=()=>{ vt.innerHTML = bigCovers() ? `<svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>Show tracks` : `<svg viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>Album view`; };
+    setTog();
+    vt.onclick=()=>{ store.set("browseview", bigCovers()?"list":null); document.querySelectorAll(".viewtog").forEach(()=>{}); applyDetailMode(items[cur]); setTog(); };
     host.querySelector(".cs").onclick=()=>{ if(window.__sleeve) window.__sleeve.open(items[cur]); };
     host.querySelector(".cq").onclick=()=>{ if(window.__recQ) window.__recQ.add(items[cur]); };
     if(opts.more){
@@ -1741,14 +1779,31 @@
     coverFlow(host.querySelector(".flow"), items.length, i=>{
       cur=i; fT.textContent=items[i].name; fS.textContent=items[i].sub||"";
       capActs.classList.toggle("hidden", items[i].kind!=="album");
+      applyDetailMode(items[i]);
       if(opts.onIndex) opts.onIndex(i);
       clearTimeout(timer); timer=setTimeout(()=>showDetail(i), detailCache.has(items[i].uri)?0:650);
-    }, i=>{ const it=items[i];                       // v36: an album opens its sleeve first; playlists play right away
-      if(it.kind==="album" && window.__sleeve) window.__sleeve.open(it); else playItem(it);
+    }, async i=>{ const it=items[i];                 // v36: an album opens its sleeve first; playlists play right away
+      if(it.kind==="album" && window.__sleeve) window.__sleeve.open(it);
+      else if(it.kind==="artist" && bigCovers()){        // v43: an artist opens their albums as covers
+        try{ const d=await fetchTracks(it); if(!d.albums||!d.albums.length){ toast("No albums found."); return; }
+          const saved={items, opts:{...opts, start:i}};
+          renderBrowser(host, d.albums, {start:0, back:()=>renderBrowser(host, saved.items, saved.opts), backLabel:it.name}); }
+        catch(e){ apiError(e); }
+      }
+      else playItem(it);
     }, start);
     syncAlbumView();
   }
 
+  // v43: Album view hides the track list for albums (the sleeve has them); playlists and artists keep theirs
+  const bigCovers=()=>store.get("browseview")!=="list";
+  function applyDetailMode(it){
+    const hide = bigCovers() && !!it && (it.kind==="album" || it.kind==="artist");
+    $("app").classList.toggle("nodetail", hide);
+    $("app").classList.toggle("bigcovers", bigCovers());
+    document.querySelectorAll(".viewtog").forEach(b=>{ b.innerHTML = bigCovers() ? `<svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>Show tracks` : `<svg viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>Album view`; });
+    requestAnimationFrame(()=>window.dispatchEvent(new Event("resize")));   // let the cover flow re-measure its cards
+  }
   // ================= v41: Album view (laptop) — big covers fill the screen; Record player brings the turntable back =================
   function syncAlbumView(){
     const pane = currentTab==="search" ? $("results") : currentTab==="playlists" ? $("pane-playlists") : null;
