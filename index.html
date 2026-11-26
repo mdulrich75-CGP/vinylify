@@ -223,6 +223,31 @@
   .crate-cap .t2{font-size:13px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .crate-cap .btn{padding:10px 18px}
 
+  /* ---------- v41: Album view / Record player switch ---------- */
+  .viewbtn{display:none;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:22px;border:1px solid var(--line);background:rgba(25,19,14,.78);color:var(--text);font:inherit;font-size:14px;cursor:pointer;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .viewbtn svg{width:18px;height:18px;fill:var(--accent)}
+  .viewbtn:hover{border-color:var(--accent)}
+  .capacts{display:flex;gap:6px;flex:none}
+  .capacts.hidden{display:none}
+  .capbtn{height:32px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:rgba(25,19,14,.6);color:var(--text);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+  .capbtn:hover{border-color:var(--accent)}
+  @media (max-width:899px){
+    .flow{height:calc(min(56vw,30vh) + 92px)}
+    .flow-card{width:min(56vw,30vh)}
+    .capbtn{height:30px;padding:0 10px;font-size:12px}
+  }
+  @media (min-width:900px){
+    #app.albumview #rpBtn{display:flex;position:absolute;top:56px;right:410px;z-index:6}
+    #app.fullpage #avBtn{display:flex;position:fixed;top:calc(var(--safe-t) + 18px);left:24px;z-index:30;opacity:0;transition:opacity .4s}
+    #app.fullpage.hud #avBtn,#app.fullpage #avBtn:hover{opacity:1}
+    #app.albumview .player{opacity:0;transform:translateY(-6%) scale(.6);pointer-events:none;transition:opacity .5s,transform .8s cubic-bezier(.3,.7,.2,1)}
+    #app.albumview .player .deck-wrap{pointer-events:none}
+    #app.albumview .flow{top:170px;bottom:104px;height:auto;perspective:1500px}
+    #app.albumview .flow-card{width:min(calc(100vh - 360px),calc((100vw - 470px)*.36),640px);top:1%;box-shadow:0 30px 70px rgba(0,0,0,.7)}
+    #app.albumview .flow-cap .t1{font-size:28px}
+    #app.albumview .flow-cap{bottom:24px}
+  }
+
   /* ---------- cover flow (album results) ---------- */
   .flow{position:relative;height:236px;overflow:hidden;perspective:650px;perspective-origin:50% 40%;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;outline:none}
   .flow.dragging{cursor:grabbing}
@@ -556,6 +581,7 @@
 </div>
 
 <div id="app">
+  <button class="viewbtn" id="avBtn" title="Back to the albums"><svg viewBox="0 0 24 24"><path d="M3 6h8v12H3V6zm10 2h4v8h-4V8zm6 1h2v6h-2V9z"/></svg>Album view</button>
   <button class="icon-btn" id="stageExit" title="Exit full page" aria-label="Exit full page"><svg viewBox="0 0 24 24"><path d="M8 4h2v6H4V8h4V4zm6 0h2v4h4v2h-6V4zM4 14h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z"/></svg></button>
   <header>
     <div style="display:flex;align-items:center;gap:14px;min-width:0">
@@ -641,6 +667,7 @@
     <div class="scrim" id="scrim"></div>
     <aside class="panel" id="panel">
       <button class="sheet-close" id="sheetClose" aria-label="Close"></button>
+      <button class="viewbtn" id="rpBtn" title="Show the record player"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5zm6 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm0 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm5-2h2v6h-2z"/></svg>Record player</button>
       <div class="tabs">
         <button class="tab on" data-tab="search">Search</button>
         <button class="tab" data-tab="playlists">Library</button>
@@ -723,7 +750,7 @@
   const $ = id => document.getElementById(id);
   const DEFAULT_CID = "bf9f380acd184859b7a48a26475196bb";
   // ---- version (bump APP_VERSION with every update) ----
-  const APP_VERSION = "40";
+  const APP_VERSION = "41";
   const APP_DATE = "Nov 25, 2026";
   if(!store.get("cid")) store.set("cid", DEFAULT_CID);
 
@@ -1249,7 +1276,8 @@
     if(name==="devices") loadDevices();
     if(name==="playlists") loadLibrary();
     if(name==="queue") loadQueue();
-    if(name==="search" && window.innerWidth>=900) setTimeout(()=>$("q").focus(),50);
+    if(name==="search" && window.innerWidth>=900 && !$("results").querySelector(".flow")) setTimeout(()=>$("q").focus(),50);
+    try{ syncAlbumView(); }catch(e){}
   }
   function openPanel(name){ showTab(name); $("panel").classList.add("open"); $("scrim").classList.add("on"); }
   function closePanel(){ $("panel").classList.remove("open"); $("scrim").classList.remove("on"); }
@@ -1669,7 +1697,7 @@
     host.innerHTML=`
       ${opts.back?`<div class="backbar"><button class="bk">‹ Back</button><span class="where">${esc(opts.backLabel||"")}</span></div>`:""}
       <div class="flow">${items.map(it=>sleeveHTML("flow-card",it)).join("")}</div>
-      <div class="flow-cap"><span class="spacer40"></span><div class="txt"><div class="t1 fT"></div><div class="t2 fS"></div></div><button class="playmini" title="Play" aria-label="Play">${PLAY_SVG}</button></div>
+      <div class="flow-cap"><span class="spacer40"></span><div class="txt"><div class="t1 fT"></div><div class="t2 fS"></div></div><span class="capacts"><button class="capbtn cs" title="Open the sleeve — tracks, credits, the album's story">Sleeve</button><button class="capbtn cq" title="Queue this record — it goes on when the one playing now is done">+ Queue</button></span><button class="playmini" title="Place on turntable" aria-label="Place on turntable">${PLAY_SVG}</button></div>
       <div class="detail"></div>
       ${opts.more?`<button class="more mo">Load more ${esc(opts.moreLabel||"")}</button>`:""}`;
     const fT=host.querySelector(".fT"), fS=host.querySelector(".fS"), detail=host.querySelector(".detail");
@@ -1677,6 +1705,9 @@
     if(opts.back) host.querySelector(".bk").onclick=opts.back;
     host._focusUri = uri => { const k=items.findIndex(it=>it.uri===uri); if(k>=0 && k!==cur) renderBrowser(host, items, {...opts, start:k}); };
     host.querySelector(".playmini").onclick=()=>playItem(items[cur]);
+    const capActs=host.querySelector(".capacts");
+    host.querySelector(".cs").onclick=()=>{ if(window.__sleeve) window.__sleeve.open(items[cur]); };
+    host.querySelector(".cq").onclick=()=>{ if(window.__recQ) window.__recQ.add(items[cur]); };
     if(opts.more){
       const mb=host.querySelector(".mo");
       mb.onclick=async()=>{ mb.textContent="Loading…"; mb.disabled=true;
@@ -1709,11 +1740,22 @@
     };
     coverFlow(host.querySelector(".flow"), items.length, i=>{
       cur=i; fT.textContent=items[i].name; fS.textContent=items[i].sub||"";
+      capActs.classList.toggle("hidden", items[i].kind!=="album");
+      if(opts.onIndex) opts.onIndex(i);
       clearTimeout(timer); timer=setTimeout(()=>showDetail(i), detailCache.has(items[i].uri)?0:650);
     }, i=>{ const it=items[i];                       // v36: an album opens its sleeve first; playlists play right away
       if(it.kind==="album" && window.__sleeve) window.__sleeve.open(it); else playItem(it);
     }, start);
+    syncAlbumView();
   }
+
+  // ================= v41: Album view (laptop) — big covers fill the screen; Record player brings the turntable back =================
+  function syncAlbumView(){
+    const pane = currentTab==="search" ? $("results") : currentTab==="playlists" ? $("pane-playlists") : null;
+    const on = window.innerWidth>=900 && !stageOn && !!pane && !!pane.querySelector(".flow") && !(currentTab==="search" && $("results").classList.contains("songs"));
+    $("app").classList.toggle("albumview", on);
+  }
+  window.addEventListener("resize", ()=>syncAlbumView());
 
   // ================= Library: Liked Songs + your playlists =================
   let libraryLoaded=false, libraryPromise=null;
@@ -1871,7 +1913,10 @@
     $("stLbl").style.backgroundImage = it.art ? `url("${it.art}")` : "";
     void intro.offsetWidth; intro.classList.remove("noanim");
     const dk=document.querySelector(".deck");
+    const real3d = STYLE.cur==="real" && !!window.__gl && $("app").classList.contains("glready");
     try{
+      // v41: on a laptop, bring the record player forward first so you can watch the record go on
+      if(real3d && window.innerWidth>=900 && !stageOn){ setStage(true); await wait(850); }
       // a record is still on the platter: needle up, arm home, lift it off and set it aside first
       if(!dk.classList.contains("empty") && (S.art || S.trackUri)){
         const was=S.playing||S.cueing;
@@ -1883,6 +1928,7 @@
         dk.classList.add("empty"); S.removeAnim=null;
         await wait(250);
       }
+      if(real3d) setArt(it.art,it.big);                   // the 3D label starts loading while the sleeve opens
       intro.classList.add("on");                          // sleeve rises into view
       // meanwhile lift the needle off whatever was playing
       if(S.playing) liftNeedle();
@@ -1892,6 +1938,20 @@
       await wait(620);
       disc.style.transform="translateX(58%) rotate(140deg)"; // record slides out
       await wait(820);
+      if(real3d){
+        // v41: hand the record over to the 3D turntable — it carries it over, drops it down the spindle and lets it settle
+        const cr=disc.getBoundingClientRect();
+        S.placeAnim={start:performance.now(), cx:cr.left+cr.width/2, cy:cr.top+cr.height/2, w:cr.width};
+        dk.classList.remove("empty");
+        disc.style.transition="opacity .2s"; disc.style.opacity="0";
+        intro.classList.add("leave"); intro.classList.remove("on");
+        await wait(1800);
+        S.placeAnim=null;
+        $("title").textContent=it.name; $("artist").textContent=it.sub||"";
+        S.duration=0; S.trackId="__pending";
+        intro.classList.add("noanim"); intro.classList.remove("leave"); disc.style.transition=""; disc.style.transform=""; disc.style.opacity=""; cover.style.transform="";
+        void intro.offsetWidth; intro.classList.remove("noanim");
+      } else {
       // fly the record onto the platter
       const dr=recordRect(), cr=disc.getBoundingClientRect();
       const dx=(dr.left+dr.width/2)-(cr.left+cr.width/2), dy=(dr.top+dr.height/2)-(cr.top+cr.height/2), sc=dr.width/cr.width;
@@ -1904,6 +1964,7 @@
       S.duration=0; S.trackId="__pending"; dk.classList.remove("empty");
       intro.classList.add("noanim"); intro.classList.remove("leave"); disc.style.transition=""; disc.style.transform=""; cover.style.transform="";
       void intro.offsetWidth; intro.classList.remove("noanim");
+      }
       if(window.innerWidth>=900 && !stageOn) setStage(true); // laptop: turntable comes forward
       S.progress=0; S.cueing=true;                        // platter spins up, tonearm swings over
       $("playIcon").innerHTML=ICON_PAUSE;
@@ -2030,8 +2091,26 @@
       return;
     }
     const startAt = st.lastIndex||0;
-    renderBrowser(out, st.items, {start:startAt, pageSize:10, moreLabel:{album:"albums",artist:"artists",playlist:"playlists"}[type], more: st.more ? loadMore : null});
+    renderBrowser(out, st.items, {start:startAt, pageSize:10, moreLabel:{album:"albums",artist:"artists",playlist:"playlists"}[type], more: st.more ? loadMore : null,
+      onIndex:i=>{ st.lastIndex=i; saveSearch(type); }});
+    saveSearch(type);
   }
+  // v41: keep the last search (and which cover you were on) until the next search — even after a reload
+  let saveTimer=0;
+  function saveSearch(type){
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>{ const st=searchState[type]; if(!st) return;
+      try{ store.set("lastsearch", JSON.stringify({type, q:st.q, items:st.items.slice(0,60), offset:st.offset, more:st.more, lastIndex:st.lastIndex||0})); }catch(e){} }, 400);
+  }
+  function restoreSearch(){
+    let d=null; try{ d=JSON.parse(store.get("lastsearch")||"null"); }catch(e){}
+    if(!d || !d.q || !d.items || !SEARCH_KEY[d.type]) return;
+    searchType=d.type; $("q").value=d.q;
+    document.querySelectorAll(".fchip").forEach(x=>x.classList.toggle("on",x.dataset.type===d.type));
+    searchState[d.type]={q:d.q, items:d.items, offset:d.offset||d.items.length, more:!!d.more, lastIndex:d.lastIndex||0};
+    renderSearch(searchState[d.type], d.type);
+  }
+  setTimeout(()=>{ try{ restoreSearch(); }catch(e){ console.warn(e); } },0);
 
   // ================= real record mode: run-out groove and flipping =================
   S.runout=null; S.lpSideNow=null; S.flipAnim=null; S.tagOverride=null;
@@ -2414,6 +2493,7 @@
     lp:()=>lpOn(),
     bands:()=>bandFractions(),
     empty:()=>document.querySelector(".deck").classList.contains("empty"),
+    thud:()=>{ try{ Sound.flick(); }catch(e){} },
     view:()=>window.__view||{tilt:34,spin:0},
     togglePlay:()=>$("playBtn").click(),
     toast:(m)=>toast(m),
@@ -2451,8 +2531,11 @@
       app.classList.remove("hud"); letSleep(); $("nowCard").classList.add("hidden");
       if(wentFS) exitFS();
     }
+    try{ syncAlbumView(); }catch(e){}
   }
   $("stageBtn").onclick=()=>setStage(true);
+  $("rpBtn").onclick=()=>setStage(true);
+  $("avBtn").onclick=()=>{ setStage(false); showTab(lastBrowseTab||"search"); };
   $("stageExit").onclick=()=>setStage(false);
   // double-tap / double-click the record to toggle
   let lastTap=0, gest=null, tapTimer=0;
@@ -3434,7 +3517,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
   function placeCamera(){
     const v=V.view(); const w=canvas.clientWidth||1, h=canvas.clientHeight||1;
     const cr=canvas.getBoundingClientRect(), dw=(canvas.parentElement||canvas).getBoundingClientRect();
-    const fy=flipG.position.y-(REC_Y+REC_H/2);                // how high the record is lifted (flipping)
+    const fy=V.S.placeAnim ? 0 : flipG.position.y-(REC_Y+REC_H/2);   // how high the record is lifted (flipping); a record being put on doesn't move the camera
     const key=[document.getElementById('app').classList.contains('fullpage'),v.tilt,v.spin,fy.toFixed(3),w,h,Math.round(cr.left),Math.round(cr.top),Math.round(dw.width),Math.round(dw.height),innerWidth,innerHeight].join(",");
     if(key===camKey) return; camKey=key;
     camera.aspect=w/h;
@@ -3546,6 +3629,55 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
     V.S.armApi.end();
   },true);
 
+  // ---------- a new record goes on (v41) ----------
+  // It starts where the record pulled from the sleeve was on screen, facing you, then is carried over the
+  // turntable while it levels out, slides down the spindle with one edge a little low, touches the mat edge-first
+  // and rocks flat — its lowest edge always resting on the mat, so it never sinks into the platter.
+  const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _qi=new THREE.Quaternion(), UP=new THREE.Vector3(0,1,0);
+  const REST_Y = REC_Y + REC_H/2, REC_R = 0.985, TILT = 0.11, HOVER = 0.65;
+  let placing=false;
+  function placeRecord(now){
+    const A=V.S.placeAnim;
+    if(!A){ if(placing){ placing=false; flipG.rotation.set(0,0,0); flipG.position.set(0,REST_Y,0); } return; }
+    if(!A.p0){                                            // first frame: work out the starting pose from the screen
+      placing=true;
+      const cr=canvas.getBoundingClientRect();
+      const nx=((A.cx-cr.left)/cr.width)*2-1, ny=-(((A.cy-cr.top)/cr.height)*2-1);
+      const focal=(cr.height/2)/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+      const camDist=camera.position.distanceTo(deck.getWorldPosition(new THREE.Vector3()));
+      const dist=Math.max(1.6, Math.min(camDist*0.6, REC_R*focal/Math.max(20,A.w/2)));   // always starts in front of the turntable, closer to you
+      const dir=_v.set(nx,ny,0.5).unproject(camera).sub(camera.position).normalize();
+      const pw=camera.position.clone().addScaledVector(dir, dist);
+      A.p0=deck.worldToLocal(pw.clone());
+      const toCam=deck.worldToLocal(camera.position.clone()).sub(A.p0).normalize();
+      A.q0=new THREE.Quaternion().setFromUnitVectors(UP, toCam);
+      A.q1=new THREE.Quaternion().setFromEuler(new THREE.Euler(TILT, 0.35, 0.04));    // carried slightly tipped
+      A.q2=new THREE.Quaternion().setFromEuler(new THREE.Euler(TILT, 0, 0));
+      A.p1=new THREE.Vector3(0, REST_Y+HOVER, 0);
+      A.c=new THREE.Vector3(A.p0.x*0.35, Math.max(A.p0.y, A.p1.y)+0.45, A.p0.z*0.5);
+      A.landed=false;
+    }
+    const t=(now-A.start)/1000;
+    const T1=0.8, T2=0.38, T3=0.55;
+    if(t<T1){                                             // carried over to the spindle
+      let u=t/T1; u=u*u*(3-2*u);
+      const a=(1-u)*(1-u), b=2*(1-u)*u, d=u*u;
+      flipG.position.set(a*A.p0.x+b*A.c.x+d*A.p1.x, a*A.p0.y+b*A.c.y+d*A.p1.y, a*A.p0.z+b*A.c.z+d*A.p1.z);
+      _q.copy(A.q0).slerp(A.q1, Math.min(1,u*1.15)); flipG.quaternion.copy(_q);
+    } else if(t<T1+T2){                                  // let go: it drops down the spindle, picking up speed
+      const u=(t-T1)/T2, g=u*u;
+      const touchY = REST_Y + REC_R*Math.sin(TILT);
+      flipG.position.set(0, A.p1.y + (touchY-A.p1.y)*g, 0);
+      _q.copy(A.q1).slerp(A.q2, u); flipG.quaternion.copy(_q);
+    } else {                                              // edge hits the mat, then it rocks down flat
+      if(!A.landed){ A.landed=true; try{ V.thud && V.thud(); }catch(e){} }
+      const s=Math.min(T3, t-T1-T2);
+      const tilt = s>=T3 ? 0 : TILT*Math.exp(-7*s)*Math.cos(15*s);
+      flipG.rotation.set(tilt,0,0);
+      flipG.position.set(0, REST_Y + REC_R*Math.abs(Math.sin(tilt)) + 0.012*Math.exp(-9*s)*Math.abs(Math.sin(22*s)), 0);
+    }
+  }
+
   // ---------- render loop ----------
   const active=()=>document.getElementById('app').classList.contains('real');
   let currentPhi=restPhi, liftY=0, frames=0, slowFrames=0, lastT=performance.now(), shadowsOn=true;
@@ -3587,6 +3719,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
       flipG.position.y = REC_Y+REC_H/2 + u*0.3 + v2*0.35;
       flipG.position.x = -v2*4.6; flipG.position.z = v2*0.5; flipG.rotation.z = v2*0.3;
     } else { flipG.position.x=0; flipG.position.z=0; flipG.rotation.z=0; }
+    placeRecord(now);
     // labels and grooves follow the music
     loadArt(S.big||S.art||null); updateLabels(); updateGrooves();
     // tonearm: follow Vinylify's arm (swing) and cue height (lift)
